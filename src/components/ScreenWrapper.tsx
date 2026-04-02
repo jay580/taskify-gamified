@@ -1,9 +1,9 @@
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View } from "react-native";
 import { COLORS, SPACING } from "../theme";
 
 export default function ScreenWrapper({ children }: any) {
   return (
-    <SafeAreaView
+    <View
       style={{
         flex: 1,
         backgroundColor: COLORS.background,
@@ -11,6 +11,6 @@ export default function ScreenWrapper({ children }: any) {
       }}
     >
       {children}
-    </SafeAreaView>
+    </View>
   );
 }

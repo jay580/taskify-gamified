@@ -6,12 +6,16 @@ export default function Badge({ label }: any) {
     <View
       style={{
         backgroundColor: COLORS.accent,
-        paddingHorizontal: SPACING.sm,
-        paddingVertical: 4,
-        borderRadius: RADIUS.sm,
+        paddingHorizontal: SPACING.md,
+        paddingVertical: 6,
+        borderRadius: 20,
+        shadowColor: COLORS.black,
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
       }}
     >
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
+      <Text style={{ fontWeight: "600", color: COLORS.black }}>{label}</Text>
     </View>
   );
 }

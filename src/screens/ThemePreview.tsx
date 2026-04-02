@@ -9,68 +9,113 @@ import { COLORS, SPACING, TYPOGRAPHY } from "../theme";
 
 export default function ThemePreview() {
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       {/* Header */}
       <Header title="Theme Preview" />
 
       <ScreenWrapper>
         <ScrollView showsVerticalScrollIndicator={false}>
           
-          {/* COLORS */}
-          <Text style={TYPOGRAPHY.heading}>Colors</Text>
+          {/* COLORS SECTION */}
+          <View
+            style={{
+              backgroundColor: COLORS.surfaceAlt,
+              padding: SPACING.md,
+              borderRadius: 12,
+              marginBottom: SPACING.lg,
+            }}
+          >
+            <Text style={TYPOGRAPHY.heading}>Colors</Text>
 
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: SPACING.lg }}>
-            {Object.entries(COLORS).map(([key, value]) => (
-              <View key={key} style={{ alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 50,
-                    height: 50,
-                    backgroundColor: value as string,
-                    borderRadius: 8,
-                    marginBottom: 4,
-                  }}
-                />
-                <Text style={{ fontSize: 10 }}>{key}</Text>
-              </View>
-            ))}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: SPACING.lg, marginTop: SPACING.md }}>
+              {Object.entries(COLORS).map(([key, value]) => (
+                <View key={key} style={{ alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 50,
+                      height: 50,
+                      backgroundColor: value as string,
+                      borderRadius: 8,
+                      marginBottom: 4,
+                    }}
+                  />
+                  <Text style={{ fontSize: 10 }}>{key}</Text>
+                </View>
+              ))}
+            </View>
           </View>
 
-          {/* TYPOGRAPHY */}
-          <Text style={TYPOGRAPHY.heading}>Typography</Text>
+          {/* TYPOGRAPHY SECTION */}
+          <View
+            style={{
+              backgroundColor: COLORS.surfaceAlt,
+              padding: SPACING.md,
+              borderRadius: 12,
+              marginBottom: SPACING.lg,
+            }}
+          >
+            <Text style={TYPOGRAPHY.heading}>Typography</Text>
 
-          <Text style={TYPOGRAPHY.title}>Title Text</Text>
-          <Text style={TYPOGRAPHY.heading}>Heading Text</Text>
-          <Text style={TYPOGRAPHY.body}>Body Text</Text>
-          <Text style={TYPOGRAPHY.small}>Small Text</Text>
+            <View style={{ marginTop: SPACING.md }}>
+              <Text style={TYPOGRAPHY.title}>Title Text</Text>
+              <Text style={[TYPOGRAPHY.heading, { marginTop: SPACING.sm }]}>Heading Text</Text>
+              <Text style={[TYPOGRAPHY.body, { marginTop: SPACING.sm }]}>Body Text</Text>
+              <Text style={[TYPOGRAPHY.small, { marginTop: SPACING.sm }]}>Small Text</Text>
+            </View>
+          </View>
 
-          {/* BUTTONS */}
-          <Text style={[TYPOGRAPHY.heading, { marginTop: SPACING.lg }]}>
-            Buttons
-          </Text>
+          {/* BUTTONS SECTION */}
+          <View
+            style={{
+              backgroundColor: COLORS.surfaceAlt,
+              padding: SPACING.md,
+              borderRadius: 12,
+              marginBottom: SPACING.lg,
+            }}
+          >
+            <Text style={TYPOGRAPHY.heading}>Buttons</Text>
 
-          <Button title="Primary Button" onPress={() => {}} />
-          <View style={{ height: 10 }} />
-          <Button title="Danger Button" variant="secondary" onPress={() => {}} />
+            <View style={{ marginTop: SPACING.md }}>
+              <Button title="Primary Button" onPress={() => {}} />
+              <View style={{ height: 10 }} />
+              <Button title="Danger Button" variant="secondary" onPress={() => {}} />
+            </View>
+          </View>
 
-          {/* CARD */}
-          <Text style={[TYPOGRAPHY.heading, { marginTop: SPACING.lg }]}>
-            Card
-          </Text>
+          {/* CARD SECTION */}
+          <View
+            style={{
+              backgroundColor: COLORS.surfaceAlt,
+              padding: SPACING.md,
+              borderRadius: 12,
+              marginBottom: SPACING.lg,
+            }}
+          >
+            <Text style={TYPOGRAPHY.heading}>Card</Text>
 
-          <Card>
-            <Text>This is a card component</Text>
-            <Points value={10} />
-          </Card>
+            <View style={{ marginTop: SPACING.md }}>
+              <Card>
+                <Text>This is a card component</Text>
+                <Points value={10} />
+              </Card>
+            </View>
+          </View>
 
-          {/* BADGES */}
-          <Text style={[TYPOGRAPHY.heading, { marginTop: SPACING.lg }]}>
-            Badges
-          </Text>
+          {/* BADGES SECTION */}
+          <View
+            style={{
+              backgroundColor: COLORS.surfaceAlt,
+              padding: SPACING.md,
+              borderRadius: 12,
+              marginBottom: SPACING.lg,
+            }}
+          >
+            <Text style={TYPOGRAPHY.heading}>Badges</Text>
 
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <Badge label="🔥 On Fire" />
-            <Badge label="⭐ First Task" />
+            <View style={{ flexDirection: "row", gap: 10, marginTop: SPACING.md }}>
+              <Badge label="🔥 On Fire" />
+              <Badge label="⭐ First Task" />
+            </View>
           </View>
 
         </ScrollView>

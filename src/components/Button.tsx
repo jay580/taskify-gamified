@@ -13,6 +13,7 @@ export default function Button({ title, onPress, variant = "primary" }: any) {
         padding: SPACING.md,
         borderRadius: RADIUS.md,
         alignItems: "center",
+        width: "100%",
       }}
     >
       <Text style={{ color: COLORS.white, fontWeight: "600" }}>
