@@ -1,0 +1,2 @@
+﻿src/navigation/StudentTabs.tsx(4,40): error TS2307: Cannot find module '@expo/vector-icons' or its corresponding type declarations.
+src/screens/Student/Home.tsx(11,40): error TS2307: Cannot find module '@expo/vector-icons' or its corresponding type declarations.
