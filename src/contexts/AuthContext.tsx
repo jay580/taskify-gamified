@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { onAuthStateChanged, loginWithEmail, logout as authLogout } from '../services/auth';
-import { getUserProfile } from '../services/firestore';
+import { getUserProfile, createDefaultUserProfile } from '../services/firestore';
 import type { UserProfile } from '../types';
 
 interface AuthContextType {
@@ -35,7 +35,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setFirebaseUser(user);
       if (user) {
         try {
-          const profile = await getUserProfile(user.uid);
+          let profile = await getUserProfile(user.uid);
+          // Auto-create profile if missing (for manually created Firebase Auth users)
+          if (!profile) {
+            profile = await createDefaultUserProfile(
+              user.uid,
+              user.email || '',
+              user.displayName || undefined
+            );
+          }
           setUserProfile(profile);
         } catch (err) {
           console.error('Error fetching user profile:', err);
@@ -51,7 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<void> => {
     const cred = await loginWithEmail(email, password);
-    const profile = await getUserProfile(cred.user.uid);
+    let profile = await getUserProfile(cred.user.uid);
+    // Auto-create profile if missing (for manually created Firebase Auth users)
+    if (!profile) {
+      profile = await createDefaultUserProfile(
+        cred.user.uid,
+        cred.user.email || '',
+        cred.user.displayName || undefined
+      );
+    }
     setUserProfile(profile);
   };
 

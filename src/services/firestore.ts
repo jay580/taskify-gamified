@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -34,6 +35,37 @@ const getInitials = (name: string) =>
     .toUpperCase();
 
 // ─── User Profile ───
+
+// Creates a default profile for a new user (used when manually created in Firebase Auth)
+export const createDefaultUserProfile = async (
+  uid: string,
+  email: string,
+  displayName?: string
+): Promise<UserProfile> => {
+  const now = new Date().toISOString();
+  const profile: UserProfile = {
+    uid,
+    name: displayName || email.split('@')[0],
+    email,
+    role: 'student',
+    room: '',
+    totalPoints: 0,
+    monthlyPoints: 0,
+    totalTasks: 0,
+    streak: 0,
+    level: 1,
+    joinDate: now,
+    avatarColor: '#4CAF50',
+  };
+
+  await setDoc(doc(db, 'users', uid), {
+    ...profile,
+    joinDate: Timestamp.now(),
+  });
+
+  return profile;
+};
+
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) return null;

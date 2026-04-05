@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "ssiapp-6e196"
+  },
   "targets": {},
   "etags": {}
 }
