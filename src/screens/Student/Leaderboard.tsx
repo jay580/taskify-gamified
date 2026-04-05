@@ -1,113 +1,172 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
-  FlatList
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext';
+import { getLeaderboard } from '../../services/firestore';
+import type { LeaderboardEntry } from '../../types';
 
 const TABS = ['This month', 'All time'];
 
-// Mock Data
-const TOP_THREE = [
-  { rank: 2, name: 'Rahul', initials: 'RN', points: 680, color: '#E8F5E9', textColor: '#388E3C', medal: 'silver' },
-  { rank: 1, name: 'Arjun', initials: 'AM', points: 920, color: '#E3F2FD', textColor: '#1976D2', medal: 'gold' },
-  { rank: 3, name: 'Priya', initials: 'PS', points: 760, color: '#FFF3E0', textColor: '#F57C00', medal: 'bronze' },
+// Assign colors to top 3 + rest
+const PODIUM_STYLES = [
+  { color: '#E3F2FD', textColor: '#1976D2' }, // 1st
+  { color: '#E8F5E9', textColor: '#388E3C' }, // 2nd
+  { color: '#FFF3E0', textColor: '#F57C00' }, // 3rd
 ];
 
-const LEADERBOARD_LIST = [
-  { id: 'u1', rank: 2, initials: 'J', name: 'Jay', isMe: true, details: 'Room 4B • 17 tasks', points: 840, avatarColor: '#F3E5F5', avatarText: '#7B1FA2' },
-  { id: 'u2', rank: 1, initials: 'AM', name: 'Arjun Mehta', isMe: false, details: 'Room 3A • 19 tasks', points: 920, avatarColor: '#E3F2FD', avatarText: '#1976D2' },
-  { id: 'u3', rank: 3, initials: 'PS', name: 'Priya Sharma', isMe: false, details: 'Room 2C • 15 tasks', points: 760, avatarColor: '#FFF3E0', avatarText: '#F57C00' },
-  { id: 'u4', rank: 4, initials: 'RN', name: 'Rahul Nair', isMe: false, details: 'Room 1A • 14 tasks', points: 680, avatarColor: '#E8F5E9', avatarText: '#388E3C' },
-  { id: 'u5', rank: 5, initials: 'SP', name: 'Sneha Patil', isMe: false, details: 'Room 3B • 13 tasks', points: 620, avatarColor: '#ECEFF1', avatarText: '#455A64' },
-];
+const AVATAR_COLORS = ['#F3E5F5', '#E3F2FD', '#FFF3E0', '#E8F5E9', '#ECEFF1'];
+const AVATAR_TEXT_COLORS = ['#7B1FA2', '#1976D2', '#F57C00', '#388E3C', '#455A64'];
 
 export default function LeaderboardScreen() {
-  const [activeTab, setActiveTab] = useState('This month');
+  const { userProfile } = useAuth();
+  const uid = userProfile?.uid ?? '';
 
-  const renderPodiumItem = (item: any, isCenter: boolean) => {
+  const [activeTab, setActiveTab] = useState('This month');
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      const mode = activeTab === 'This month' ? 'monthly' : 'alltime';
+      const data = await getLeaderboard(mode);
+      setEntries(data);
+    } catch (err) {
+      console.error('Error loading leaderboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    setLoading(true);
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  // Calculate days left in the current month
+  const getDaysLeft = () => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return lastDay - now.getDate();
+  };
+
+  // Split top 3 for podium, rest for list
+  const topThree = entries.slice(0, 3);
+  // Reorder for podium display: [2nd, 1st, 3rd]
+  const podiumOrder = topThree.length >= 3
+    ? [topThree[1], topThree[0], topThree[2]]
+    : topThree;
+
+  const renderPodiumItem = (item: LeaderboardEntry, isCenter: boolean) => {
+    const podiumIdx = item.rank - 1;
+    const style = PODIUM_STYLES[podiumIdx] || PODIUM_STYLES[0];
+
     return (
-      <View key={item.name} style={[styles.podiumItem, isCenter ? styles.podiumCenter : null]}>
-        {/* Avatar */}
-        <View style={[
-          styles.podiumAvatar, 
-          { backgroundColor: item.color },
-          isCenter && styles.podiumAvatarCenter
-        ]}>
-          <Text style={[
-            styles.podiumAvatarText, 
-            { color: item.textColor },
-            isCenter && styles.podiumAvatarTextCenter
-          ]}>
+      <View key={item.uid} style={[styles.podiumItem, isCenter ? styles.podiumCenter : null]}>
+        <View
+          style={[
+            styles.podiumAvatar,
+            { backgroundColor: style.color },
+            isCenter && styles.podiumAvatarCenter,
+          ]}
+        >
+          <Text
+            style={[
+              styles.podiumAvatarText,
+              { color: style.textColor },
+              isCenter && styles.podiumAvatarTextCenter,
+            ]}
+          >
             {item.initials}
           </Text>
         </View>
-        <Text style={styles.podiumName}>{item.name}</Text>
+        <Text style={styles.podiumName}>{item.name.split(' ')[0]}</Text>
         <Text style={styles.podiumPoints}>{item.points}</Text>
-        
-        {/* Podium Base */}
-        <View style={[
-          styles.podiumBase, 
-          isCenter ? styles.podiumBaseCenter : styles.podiumBaseSide
-        ]}>
-           {item.rank === 1 && <Text style={styles.medalIcon}>🥇</Text>}
-           {item.rank === 2 && <Text style={styles.medalIcon}>🥈</Text>}
-           {item.rank === 3 && <Text style={styles.medalIcon}>🥉</Text>}
+
+        <View style={[styles.podiumBase, isCenter ? styles.podiumBaseCenter : styles.podiumBaseSide]}>
+          {item.rank === 1 && <Text style={styles.medalIcon}>🥇</Text>}
+          {item.rank === 2 && <Text style={styles.medalIcon}>🥈</Text>}
+          {item.rank === 3 && <Text style={styles.medalIcon}>🥉</Text>}
         </View>
       </View>
     );
   };
 
-  const renderListItem = ({ item }: { item: any }) => (
-    <View style={styles.listRow}>
-      <Text style={styles.listRank}>{item.rank}</Text>
-      
-      <View style={[styles.listAvatar, { backgroundColor: item.avatarColor }]}>
-        <Text style={[styles.listAvatarText, { color: item.avatarText }]}>{item.initials}</Text>
-      </View>
-      
-      <View style={styles.listInfo}>
-        <View style={styles.listNameRow}>
-          <Text style={[styles.listName, item.isMe && styles.listNameActive]}>{item.name}</Text>
-          {item.isMe && (
-            <View style={styles.youBadge}>
-              <Text style={styles.youBadgeText}>you</Text>
-            </View>
-          )}
+  const renderListItem = ({ item }: { item: LeaderboardEntry }) => {
+    const isMe = item.uid === uid;
+    const colorIdx = (item.rank - 1) % AVATAR_COLORS.length;
+
+    return (
+      <View style={styles.listRow}>
+        <Text style={styles.listRank}>{item.rank}</Text>
+
+        <View style={[styles.listAvatar, { backgroundColor: AVATAR_COLORS[colorIdx] }]}>
+          <Text style={[styles.listAvatarText, { color: AVATAR_TEXT_COLORS[colorIdx] }]}>
+            {item.initials}
+          </Text>
         </View>
-        <Text style={styles.listSubtext}>{item.details}</Text>
+
+        <View style={styles.listInfo}>
+          <View style={styles.listNameRow}>
+            <Text style={[styles.listName, isMe && styles.listNameActive]}>{item.name}</Text>
+            {isMe && (
+              <View style={styles.youBadge}>
+                <Text style={styles.youBadgeText}>you</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.listSubtext}>
+            {item.room ? `${item.room} • ` : ''}{item.totalTasks} tasks
+          </Text>
+        </View>
+
+        <Text style={[styles.listPoints, isMe && styles.listPointsActive]}>{item.points}</Text>
       </View>
-      
-      <Text style={[styles.listPoints, item.isMe && styles.listPointsActive]}>{item.points}</Text>
-    </View>
-  );
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#6200EE" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       {/* PURPLE HEADER SECTION */}
       <View style={styles.headerBackground}>
         <SafeAreaView edges={['top']}>
-          {/* Top Row */}
           <View style={styles.headerTopRow}>
             <Text style={styles.headerTitle}>Leaderboard</Text>
             <View style={styles.daysLeftPill}>
               <View style={styles.redDot} />
-              <Text style={styles.daysLeftText}>27 days left</Text>
+              <Text style={styles.daysLeftText}>{getDaysLeft()} days left</Text>
             </View>
           </View>
 
-          {/* Segmented Control */}
           <View style={styles.segmentedControl}>
             {TABS.map((tab) => {
               const isActive = activeTab === tab;
               return (
-                <TouchableOpacity 
-                  key={tab} 
+                <TouchableOpacity
+                  key={tab}
                   style={[styles.segmentButton, isActive && styles.segmentButtonActive]}
                   onPress={() => setActiveTab(tab)}
                 >
@@ -120,22 +179,27 @@ export default function LeaderboardScreen() {
           </View>
 
           {/* Podium */}
-          <View style={styles.podiumContainer}>
-            {renderPodiumItem(TOP_THREE[0], false)}
-            {renderPodiumItem(TOP_THREE[1], true)}
-            {renderPodiumItem(TOP_THREE[2], false)}
-          </View>
+          {podiumOrder.length > 0 && (
+            <View style={styles.podiumContainer}>
+              {podiumOrder.map((item, idx) =>
+                renderPodiumItem(item, idx === 1) // center item is the 1st place
+              )}
+            </View>
+          )}
         </SafeAreaView>
       </View>
 
       {/* LIST SECTION */}
       <View style={styles.listContainer}>
         <FlatList
-          data={LEADERBOARD_LIST}
-          keyExtractor={item => item.id}
+          data={entries}
+          keyExtractor={(item) => item.uid}
           renderItem={renderListItem}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.flatListContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />
+          }
         />
       </View>
     </View>
@@ -145,7 +209,7 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // List background
+    backgroundColor: '#FFFFFF',
   },
   headerBackground: {
     backgroundColor: '#5E35B1',
@@ -153,8 +217,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     paddingHorizontal: 20,
     paddingTop: 10,
-    // Add extra padding at the bottom so the podium fits inside the curve
-    paddingBottom: 40, 
+    paddingBottom: 40,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -223,7 +286,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   podiumCenter: {
-    marginBottom: 10, // Elevates the center item slightly
+    marginBottom: 10,
   },
   podiumAvatar: {
     width: 50,
@@ -279,14 +342,14 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    marginTop: -20, // Overlap the curved header slightly
+    marginTop: -20,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },
   flatListContent: {
     paddingTop: 30,
     paddingHorizontal: 20,
-    paddingBottom: 100, // Space for bottom tabs
+    paddingBottom: 100,
   },
   listRow: {
     flexDirection: 'row',
@@ -326,7 +389,7 @@ const styles = StyleSheet.create({
     color: '#212121',
   },
   listNameActive: {
-    color: '#6200EE', 
+    color: '#6200EE',
   },
   youBadge: {
     backgroundColor: '#6200EE',

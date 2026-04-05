@@ -1,0 +1,12 @@
+name: Firebase MCP server
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: Firebase MCP server
+    command: npx
+    args:
+      - -y
+      - firebase-mcp
+    env: 
+      FIREBASE_DATABASE_URL: ""
+      FIREBASE_PROJECT_ID: ""

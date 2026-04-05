@@ -1,44 +1,131 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
-  FlatList
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  getAvailableTasks,
+  getStudentSubmissions,
+  getCompletedSubmissions,
+} from '../../services/firestore';
+import type { Task, Submission, TaskCategory } from '../../types';
 
 const PRIMARY_TABS = ['Available', 'Submissions', 'Completed'];
 const CATEGORIES = ['All', 'Academic', 'Domestic', 'Sports', 'Special'];
 
-const MOCK_AVAILABLE_TASKS = [
-  { id: '1', title: 'Library assignment log', category: 'Academic', date: 'Apr 6', points: 50, icon: 'clock-outline', iconColor: '#1976D2', tagColor: '#E3F2FD', tagTextColor: '#1976D2' },
-  { id: '2', title: 'Morning room cleanup', category: 'Domestic', date: 'Apr 5', points: 30, icon: 'clock-outline', iconColor: '#388E3C', tagColor: '#E8F5E9', tagTextColor: '#388E3C' },
-  { id: '3', title: 'Morning PT session', category: 'Sports', date: 'Apr 7', points: 35, icon: 'clock-outline', iconColor: '#F57C00', tagColor: '#FFF3E0', tagTextColor: '#F57C00' },
-  { id: '4', title: 'Special event volunteer', category: 'Special', date: 'Apr 12', points: 150, icon: 'star-outline', iconColor: '#6200EE', tagColor: '#F3E5F5', tagTextColor: '#6200EE' },
-];
+// Styling helpers
+const getCategoryStyle = (cat: TaskCategory) => {
+  switch (cat) {
+    case 'Academic': return { iconColor: '#1976D2', tagColor: '#E3F2FD', tagTextColor: '#1976D2' };
+    case 'Domestic': return { iconColor: '#388E3C', tagColor: '#E8F5E9', tagTextColor: '#388E3C' };
+    case 'Sports':   return { iconColor: '#F57C00', tagColor: '#FFF3E0', tagTextColor: '#F57C00' };
+    case 'Special':  return { iconColor: '#6200EE', tagColor: '#F3E5F5', tagTextColor: '#6200EE' };
+    default:         return { iconColor: '#6200EE', tagColor: '#F3E5F5', tagTextColor: '#6200EE' };
+  }
+};
 
-const MOCK_SUBMISSIONS = [
-  { id: 's1', title: 'Weekend campus sweep', category: 'Domestic', date: 'Apr 1', points: 40, icon: 'clock-outline', iconColor: '#388E3C', status: 'Pending', statusColor: '#FFA000' },
-  { id: 's2', title: 'Math tutorial', category: 'Academic', date: 'Mar 28', points: 60, icon: 'check-circle-outline', iconColor: '#1976D2', status: 'Rejected', statusColor: '#D32F2F' },
-];
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'pending':  return '#FFA000';
+    case 'rejected': return '#D32F2F';
+    case 'approved': return '#4CAF50';
+    default:         return '#757575';
+  }
+};
 
-const MOCK_COMPLETED = [
-  { id: 'c1', title: 'Hostel Night Guard', category: 'Domestic', date: 'Mar 25', points: 100, icon: 'check-circle-outline', iconColor: '#388E3C' },
-];
+const formatDate = (iso: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 
 export default function TasksScreen() {
+  const { userProfile } = useAuth();
+  const uid = userProfile?.uid ?? '';
+
   const [activeTab, setActiveTab] = useState('Available');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [completed, setCompleted] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Filter logic
-  const getDisplayData = () => {
-    let data : any[] = [];
-    if (activeTab === 'Available') data = MOCK_AVAILABLE_TASKS;
-    if (activeTab === 'Submissions') data = MOCK_SUBMISSIONS;
-    if (activeTab === 'Completed') data = MOCK_COMPLETED;
+  const loadData = useCallback(async () => {
+    if (!uid) return;
+    try {
+      const [taskList, subs, comp] = await Promise.all([
+        getAvailableTasks(),
+        getStudentSubmissions(uid),
+        getCompletedSubmissions(uid),
+      ]);
+      setAvailableTasks(taskList);
+      // Filter submissions to only pending/rejected (not approved)
+      setSubmissions(subs.filter(s => s.status !== 'approved'));
+      setCompleted(comp);
+    } catch (err) {
+      console.error('Error loading tasks:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [uid]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  // Get the right data for current tab + category filter
+  const getDisplayData = (): any[] => {
+    let data: any[] = [];
+
+    if (activeTab === 'Available') {
+      data = availableTasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        category: t.category,
+        date: formatDate(t.deadline),
+        points: t.points,
+        icon: 'clock-outline',
+        ...getCategoryStyle(t.category),
+      }));
+    } else if (activeTab === 'Submissions') {
+      data = submissions.map(s => ({
+        id: s.id,
+        title: s.taskTitle,
+        category: s.taskCategory,
+        date: formatDate(s.submittedAt),
+        points: s.taskPoints,
+        icon: s.status === 'rejected' ? 'close-circle-outline' : 'clock-outline',
+        ...getCategoryStyle(s.taskCategory),
+        status: s.status.charAt(0).toUpperCase() + s.status.slice(1),
+        statusColor: getStatusColor(s.status),
+      }));
+    } else {
+      data = completed.map(s => ({
+        id: s.id,
+        title: s.taskTitle,
+        category: s.taskCategory,
+        date: formatDate(s.submittedAt),
+        points: s.taskPoints,
+        icon: 'check-circle-outline',
+        ...getCategoryStyle(s.taskCategory),
+      }));
+    }
 
     if (activeCategory !== 'All') {
       data = data.filter(task => task.category === activeCategory);
@@ -51,7 +138,7 @@ export default function TasksScreen() {
       <View style={styles.cardIconBox}>
         <MaterialCommunityIcons name={item.icon || 'clock-outline'} size={24} color={item.iconColor} />
       </View>
-      
+
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle}>{item.title}</Text>
         <View style={styles.cardTagsRow}>
@@ -78,11 +165,18 @@ export default function TasksScreen() {
     </View>
   );
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#6200EE" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.headerBackground}>
         <SafeAreaView edges={['top']}>
-          {/* Header Top Row */}
           <View style={styles.headerTopRow}>
             <Text style={styles.headerTitle}>Tasks</Text>
             <TouchableOpacity>
@@ -90,13 +184,12 @@ export default function TasksScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Primary Tabs (Segmented Control) */}
           <View style={styles.segmentedControl}>
             {PRIMARY_TABS.map((tab) => {
               const isActive = activeTab === tab;
               return (
-                <TouchableOpacity 
-                  key={tab} 
+                <TouchableOpacity
+                  key={tab}
                   style={[styles.segmentButton, isActive && styles.segmentButtonActive]}
                   onPress={() => setActiveTab(tab)}
                 >
@@ -110,13 +203,13 @@ export default function TasksScreen() {
         </SafeAreaView>
       </View>
 
-      {/* Category Filters (Overlapping the purple background slightly just by positioning if we want, but keeping it simple here) */}
+      {/* Category Filters */}
       <View style={styles.filterSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {CATEGORIES.map(cat => {
             const isActive = activeCategory === cat;
             return (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={cat}
                 style={[styles.filterPill, isActive ? styles.filterPillActive : styles.filterPillInactive]}
                 onPress={() => setActiveCategory(cat)}
@@ -137,6 +230,7 @@ export default function TasksScreen() {
         renderItem={renderTaskCard}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No tasks found.</Text>
@@ -173,7 +267,7 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.2)', // Darker translucent background
+    backgroundColor: 'rgba(0,0,0,0.2)',
     borderRadius: 25,
     padding: 4,
   },
@@ -195,11 +289,11 @@ const styles = StyleSheet.create({
     color: '#5E35B1',
   },
   filterSection: {
-    marginTop: -20, // Negative margin to overlap the purple background
+    marginTop: -20,
   },
   filterScroll: {
     paddingHorizontal: 15,
-    paddingBottom: 15, // Space for shadow
+    paddingBottom: 15,
   },
   filterPill: {
     paddingHorizontal: 20,
@@ -216,7 +310,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6200EE',
   },
   filterPillInactive: {
-    backgroundColor: '#333333', // Dark cards as per design
+    backgroundColor: '#333333',
   },
   filterPillTextActive: {
     color: '#FFFFFF',
@@ -231,10 +325,10 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 100, // Space for bottom tabs
+    paddingBottom: 100,
   },
   cardContainer: {
-    backgroundColor: '#2C2C2E', // Very dark grey/black background
+    backgroundColor: '#2C2C2E',
     borderRadius: 20,
     padding: 16,
     flexDirection: 'row',
@@ -287,7 +381,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   pointsPlus: {
-    color: '#64B5F6', // Light blue/purple color for active points
+    color: '#64B5F6',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -304,5 +398,5 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#757575',
     fontSize: 16,
-  }
+  },
 });

@@ -1,58 +1,126 @@
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Image, 
-  Alert 
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// --- INITIAL MOCK DATA ---
-const STATS = {
-  rank: 4,
-  points: 1250,
-  streak: 5,
-};
-
-const DAILY_QUESTS = [
-  { id: '1', title: 'Clean Dorm Room', type: 'Domestic', time: '2h left', points: 50, completed: false, icon: 'clock-outline', color: '#6200EE' },
-  { id: '2', title: 'Math Assignment #4', type: 'Academic', time: 'Tomorrow', points: 100, completed: false, icon: 'clock-outline', color: '#6200EE' },
-  { id: '3', title: 'Library Duty', type: 'Domestic', time: 'Completed', points: 75, completed: true, icon: 'check-circle-outline', color: '#4CAF50' },
-];
-
-const REDEEM_STORE = [
-  { id: '1', title: 'Movie Ticket', points: 500, image: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&q=80' },
-  { id: '2', title: 'Mobile Recharge', points: 300, image: 'https://images.unsplash.com/photo-1544866092-1935c5ef2a8f?w=500&q=80' },
-];
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  getAvailableTasks,
+  getMonthlyReward,
+  getRedeemItems,
+  getLeaderboard,
+} from '../../services/firestore';
+import type { Task, MonthlyReward, RewardItem } from '../../types';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const { userProfile, refreshProfile } = useAuth();
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [monthlyReward, setMonthlyReward] = useState<MonthlyReward | null>(null);
+  const [redeemItems, setRedeemItems] = useState<RewardItem[]>([]);
+  const [rank, setRank] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [taskList, reward, items, leaderboard] = await Promise.all([
+        getAvailableTasks(),
+        getMonthlyReward(),
+        getRedeemItems(),
+        getLeaderboard('monthly'),
+      ]);
+      setTasks(taskList.slice(0, 3)); // Show top 3 as daily quests
+      setMonthlyReward(reward);
+      setRedeemItems(items);
+
+      // Find current user's rank
+      if (userProfile) {
+        const idx = leaderboard.findIndex((e) => e.uid === userProfile.uid);
+        setRank(idx >= 0 ? idx + 1 : 0);
+      }
+    } catch (err) {
+      console.error('Error loading home data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [userProfile]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadData(), refreshProfile()]);
+    setRefreshing(false);
+  }, [loadData, refreshProfile]);
+
+  const formatDeadline = (iso: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = d.getTime() - now.getTime();
+    const diffH = Math.round(diffMs / 3600000);
+    if (diffH < 0) return 'Expired';
+    if (diffH < 24) return `${diffH}h left`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getCategoryColor = (cat: string) => {
+    switch (cat) {
+      case 'Academic': return '#1976D2';
+      case 'Domestic': return '#388E3C';
+      case 'Sports': return '#F57C00';
+      case 'Special': return '#6200EE';
+      default: return '#6200EE';
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#6200EE" />
+      </View>
+    );
+  }
+
+  const displayName = userProfile?.name ?? 'Student';
+  const points = userProfile?.monthlyPoints ?? 0;
+  const streak = userProfile?.streak ?? 0;
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />}
+      >
         {/* TOP PURPLE HEADER SECTION */}
         <View style={styles.headerBackground}>
           <SafeAreaView edges={['top']}>
-            
             {/* Profile Info */}
             <View style={styles.profileRow}>
               <View style={styles.avatarContainer}>
-                {/* Yellowish background for avatar */}
-                <Image 
-                  source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png' }} 
-                  style={styles.avatar} 
+                <Image
+                  source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png' }}
+                  style={styles.avatar}
                 />
               </View>
               <View style={styles.profileTextContainer}>
                 <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.nameText}>Aryan Sharma</Text>
+                <Text style={styles.nameText}>{displayName}</Text>
               </View>
               <View style={styles.iconButtonsRow}>
                 <TouchableOpacity style={styles.iconButton}>
@@ -67,23 +135,20 @@ export default function HomeScreen() {
 
             {/* Stats Row */}
             <View style={styles.statsRow}>
-              {/* Rank */}
               <View style={styles.statCard}>
                 <MaterialCommunityIcons name="trophy-outline" size={28} color="#FFD700" />
                 <Text style={styles.statLabel}>Rank</Text>
-                <Text style={styles.statValue}>#{STATS.rank}</Text>
+                <Text style={styles.statValue}>#{rank || '-'}</Text>
               </View>
-              {/* Points */}
               <View style={styles.statCard}>
                 <MaterialCommunityIcons name="star-outline" size={28} color="#FFB300" />
                 <Text style={styles.statLabel}>Points</Text>
-                <Text style={styles.statValue}>{STATS.points}</Text>
+                <Text style={styles.statValue}>{points}</Text>
               </View>
-              {/* Streak */}
               <View style={styles.statCard}>
                 <MaterialCommunityIcons name="trending-up" size={28} color="#00E676" />
                 <Text style={styles.statLabel}>Streak</Text>
-                <Text style={styles.statValue}>{STATS.streak}d</Text>
+                <Text style={styles.statValue}>{streak}d</Text>
               </View>
             </View>
 
@@ -93,75 +158,98 @@ export default function HomeScreen() {
 
         {/* DAILY QUESTS LIST */}
         <View style={styles.questsContainer}>
-          {DAILY_QUESTS.map((quest) => (
-            <View key={quest.id} style={styles.questCard}>
-              <View style={[styles.questIconBox, { backgroundColor: quest.completed ? '#E8F5E9' : '#F3E5F5' }]}>
-                <MaterialCommunityIcons name={quest.icon as any} size={28} color={quest.color} />
-              </View>
-              <View style={styles.questInfo}>
-                <Text style={styles.questTitle}>{quest.title}</Text>
-                <View style={styles.questTagsRow}>
-                  <View style={styles.questTag}>
-                    <Text style={styles.questTagText}>{quest.type}</Text>
-                  </View>
-                  <Text style={styles.questTimeText}>• {quest.time}</Text>
-                </View>
-              </View>
-              <View style={styles.questPointsBox}>
-                <Text style={styles.pointsPlus}>+{quest.points}</Text>
-                <Text style={styles.pointsLabel}>POINTS</Text>
-              </View>
+          {tasks.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No quests available right now</Text>
             </View>
-          ))}
+          ) : (
+            tasks.map((quest) => {
+              const color = getCategoryColor(quest.category);
+              const timeText = formatDeadline(quest.deadline);
+              const isExpired = timeText === 'Expired';
+              return (
+                <View key={quest.id} style={styles.questCard}>
+                  <View style={[styles.questIconBox, { backgroundColor: '#F3E5F5' }]}>
+                    <MaterialCommunityIcons
+                      name={isExpired ? 'check-circle-outline' : 'clock-outline'}
+                      size={28}
+                      color={isExpired ? '#4CAF50' : color}
+                    />
+                  </View>
+                  <View style={styles.questInfo}>
+                    <Text style={styles.questTitle}>{quest.title}</Text>
+                    <View style={styles.questTagsRow}>
+                      <View style={styles.questTag}>
+                        <Text style={styles.questTagText}>{quest.category}</Text>
+                      </View>
+                      <Text style={styles.questTimeText}>• {timeText}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.questPointsBox}>
+                    <Text style={styles.pointsPlus}>+{quest.points}</Text>
+                    <Text style={styles.pointsLabel}>POINTS</Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
         </View>
 
         {/* REWARD OF THE MONTH */}
-        <View style={styles.rewardContainer}>
-          <View style={styles.rewardCard}>
-            <View style={styles.rewardHeader}>
-              <MaterialCommunityIcons name="gift-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.rewardTitleText}>REWARD OF THE MONTH</Text>
+        {monthlyReward && (
+          <View style={styles.rewardContainer}>
+            <View style={styles.rewardCard}>
+              <View style={styles.rewardHeader}>
+                <MaterialCommunityIcons name="gift-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.rewardTitleText}>REWARD OF THE MONTH</Text>
+              </View>
+              <Text style={styles.rewardMainTitle}>{monthlyReward.title}</Text>
+              <Text style={styles.rewardSubtext}>{monthlyReward.description}</Text>
+              <TouchableOpacity
+                style={styles.rewardButton}
+                onPress={() => navigation.navigate('Rank')}
+              >
+                <Text style={styles.rewardButtonText}>Check Leaderboard</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.rewardMainTitle}>Premium Lounge Access</Text>
-            <Text style={styles.rewardSubtext}>
-              Top 3 performers get exclusive access to the student lounge for a week!
-            </Text>
-            <TouchableOpacity style={styles.rewardButton} onPress={() => Alert.alert('Leaderboard')}>
-              <Text style={styles.rewardButtonText}>Check Leaderboard</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        )}
 
         {/* REDEEM POINTS */}
-        <View style={styles.redeemSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Redeem Points</Text>
-            <TouchableOpacity>
-              <Text style={styles.storeLinkText}>Store</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.redeemScroll}>
-            {REDEEM_STORE.map((item) => (
-              <View key={item.id} style={styles.redeemCard}>
-                <Image source={{ uri: item.image }} style={styles.redeemImage} />
-                <View style={styles.redeemInfo}>
-                  <Text style={styles.redeemItemTitle}>{item.title}</Text>
-                  <View style={styles.redeemPointsRow}>
-                    <Text style={styles.redeemCost}>{item.points} pts</Text>
-                    <TouchableOpacity style={styles.addRedeemButton}>
-                      <MaterialCommunityIcons name="plus" size={20} color="#6200EE" />
-                    </TouchableOpacity>
+        {redeemItems.length > 0 && (
+          <View style={styles.redeemSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Redeem Points</Text>
+              <TouchableOpacity>
+                <Text style={styles.storeLinkText}>Store</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.redeemScroll}
+            >
+              {redeemItems.map((item) => (
+                <View key={item.id} style={styles.redeemCard}>
+                  <Image source={{ uri: item.imageUrl }} style={styles.redeemImage} />
+                  <View style={styles.redeemInfo}>
+                    <Text style={styles.redeemItemTitle}>{item.title}</Text>
+                    <View style={styles.redeemPointsRow}>
+                      <Text style={styles.redeemCost}>{item.pointsCost} pts</Text>
+                      <TouchableOpacity style={styles.addRedeemButton}>
+                        <MaterialCommunityIcons name="plus" size={20} color="#6200EE" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Spacer for bottom tab bar */}
         <View style={{ height: 100 }} />
-
       </ScrollView>
     </View>
   );
@@ -176,7 +264,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   headerBackground: {
-    backgroundColor: '#5E35B1', 
+    backgroundColor: '#5E35B1',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingHorizontal: 20,
@@ -263,14 +351,23 @@ const styles = StyleSheet.create({
   sectionTitleDark: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#212121', // The mockup shows dark text over the purple? Or wait, let me check. If the purple extends down, dark text looks weird.
-    // Actually the mockup has "Daily Quests" in dark gray, but it might be on the white background.
-    // Let's adjust - I'll put it outside the purple header if it's meant to be below it. But I wrote it inside.
+    color: '#FFFFFF',
     marginTop: 10,
   },
   questsContainer: {
     paddingHorizontal: 20,
-    marginTop: -15, // Bring it up over the purple curve slightly or just below it.
+    marginTop: 15,
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 30,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  emptyText: {
+    color: '#757575',
+    fontSize: 15,
   },
   questCard: {
     flexDirection: 'row',
@@ -340,7 +437,7 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   rewardCard: {
-    backgroundColor: '#FF6B6B', // Fallback for gradient
+    backgroundColor: '#FF6B6B',
     borderRadius: 20,
     padding: 20,
   },

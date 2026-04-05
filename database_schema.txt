@@ -1,0 +1,54 @@
+DATABASE SCHEMA - TASKIFY (Firestore)
+
+1. USERS COLLECTION
+Stores profile info for Students and Admins.
+- uid (string): Unique identifier (matches Firebase Auth)
+- name (string): Full name
+- email (string): User email address
+- role (string): 'student' or 'admin'
+- room (string): Room identifier
+- totalPoints (number): Cumulative points
+- monthlyPoints (number): Points in current month
+- totalTasks (number): Number of tasks completed
+- streak (number): Daily activity streak
+- level (number): Current XP level
+- joinDate (string): ISO Registration date
+- avatarColor (string): Hex color code
+
+2. TASKS COLLECTION
+Stores tasks created by admins.
+- id (string): Unique document ID
+- title (string): Task name
+- description (string): Detailed description
+- category (string): 'Academic', 'Domestic', 'Sports', 'Special'
+- points (number): Points for completion
+- deadline (string): ISO Expiry date
+- createdBy (string): Admin UID
+- createdAt (string): ISO Creation date
+- status (string): 'active' or 'archived'
+
+3. SUBMISSIONS COLLECTION
+Student task completions.
+- id (string): Unique document ID
+- taskId (string): Linked Task ID
+- taskTitle (string): Denormalized title
+- taskCategory (string): Denormalized category
+- taskPoints (number): Points value
+- studentId (string): Student UID
+- submittedAt (string): ISO Submission timestamp
+- status (string): 'pending', 'approved', 'rejected'
+- reviewedBy (string): Optional Admin UID
+- reviewedAt (string): Optional ISO Review timestamp
+
+4. REWARDS COLLECTION
+Redeemable items.
+- id (string): Unique document ID
+- title (string): Reward name
+- description (string): Detailed description
+- pointsCost (number): Required points
+- imageUrl (string): Icon URL
+- active (boolean): Availability status
+
+5. SETTINGS COLLECTION
+Global configuration.
+- monthlyReward (object): { title, description, month }

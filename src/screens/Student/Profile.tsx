@@ -1,84 +1,146 @@
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
   FlatList,
-  Alert
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../../contexts/AuthContext';
+import { getStudentSubmissions } from '../../services/firestore';
+import type { Submission } from '../../types';
 
-// Mock Data
-const USER_PROFILE = {
-  name: 'Aryan Sharma',
-  email: 'aryan.sharma@boardingschool.edu',
-  level: 12,
-  totalTasks: 47,
-  totalPoints: 1250,
-  joinDate: 'Aug 2025'
+const getCategoryIcon = (cat: string) => {
+  switch (cat) {
+    case 'Academic': return { icon: 'book-outline', color: '#1976D2' };
+    case 'Domestic': return { icon: 'broom', color: '#388E3C' };
+    case 'Sports':   return { icon: 'run', color: '#F57C00' };
+    case 'Special':  return { icon: 'star-outline', color: '#6200EE' };
+    default:         return { icon: 'check-circle-outline', color: '#6200EE' };
+  }
 };
 
-const PAST_TASKS = [
-  { id: '1', title: 'Library assignment log', category: 'Academic', date: 'Apr 6', points: 50, icon: 'book-outline', iconColor: '#1976D2', status: 'Approved', statusColor: '#4CAF50' },
-  { id: '2', title: 'Morning room cleanup', category: 'Domestic', date: 'Apr 5', points: 30, icon: 'broom', iconColor: '#388E3C', status: 'Approved', statusColor: '#4CAF50' },
-  { id: '3', title: 'Math tutorial', category: 'Academic', date: 'Mar 28', points: 60, icon: 'calculator', iconColor: '#1976D2', status: 'Rejected', statusColor: '#F44336' },
-  { id: '4', title: 'Hostel Night Guard', category: 'Domestic', date: 'Mar 25', points: 100, icon: 'shield-outline', iconColor: '#388E3C', status: 'Approved', statusColor: '#4CAF50' },
-  { id: '5', title: 'Volunteer Tech Support', category: 'Special', date: 'Mar 20', points: 150, icon: 'laptop', iconColor: '#6200EE', status: 'Approved', statusColor: '#4CAF50' },
-];
+const getStatusInfo = (status: string) => {
+  switch (status) {
+    case 'approved': return { label: 'Approved', color: '#4CAF50' };
+    case 'rejected': return { label: 'Rejected', color: '#F44336' };
+    case 'pending':  return { label: 'Pending',  color: '#FFA000' };
+    default:         return { label: status, color: '#757575' };
+  }
+};
+
+const formatDate = (iso: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 
 export default function ProfileScreen() {
-  const navigation = useNavigation<any>();
+  const { userProfile, logout, refreshProfile } = useAuth();
+  const uid = userProfile?.uid ?? '';
+
+  const [pastTasks, setPastTasks] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async () => {
+    if (!uid) return;
+    try {
+      const subs = await getStudentSubmissions(uid);
+      setPastTasks(subs);
+    } catch (err) {
+      console.error('Error loading profile data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [uid]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadData(), refreshProfile()]);
+    setRefreshing(false);
+  }, [loadData, refreshProfile]);
 
   const handleEditProfile = () => {
-    Alert.alert("Edit Profile", "Open Edit Profile modal/screen");
+    Alert.alert('Edit Profile', 'Edit profile feature coming soon!');
   };
 
   const handleSettings = () => {
     Alert.alert(
-      "Settings",
-      "Manage your account",
+      'Settings',
+      'Manage your account',
       [
-        { 
-          text: "Switch to Admin", 
-          onPress: () => Alert.alert('Switch to Admin', 'Navigating to Admin Portal... (To be implemented)') 
+        {
+          text: 'Logout',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (err) {
+              Alert.alert('Error', 'Could not log out. Try again.');
+            }
+          },
+          style: 'destructive',
         },
-        { 
-          text: "Logout", 
-          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Auth' }] }),
-          style: 'destructive'
-        },
-        { text: "Cancel", style: "cancel" }
-      ]
+        { text: 'Cancel', style: 'cancel' },
+      ],
     );
   };
 
-  const renderPastTaskItem = ({ item }: { item: any }) => (
-    <View style={styles.taskCard}>
-      <View style={styles.taskIconBox}>
-        <MaterialCommunityIcons name={item.icon || 'check-circle-outline'} size={24} color={item.iconColor} />
+  const renderPastTaskItem = ({ item }: { item: Submission }) => {
+    const { icon, color: iconColor } = getCategoryIcon(item.taskCategory);
+    const { label, color: statusColor } = getStatusInfo(item.status);
+
+    return (
+      <View style={styles.taskCard}>
+        <View style={styles.taskIconBox}>
+          <MaterialCommunityIcons name={icon as any} size={24} color={iconColor} />
+        </View>
+        <View style={styles.taskInfo}>
+          <Text style={styles.taskTitle}>{item.taskTitle}</Text>
+          <Text style={styles.taskMeta}>
+            {item.taskCategory}  •  {formatDate(item.submittedAt)}
+          </Text>
+        </View>
+        <View style={styles.taskResultBox}>
+          <Text style={styles.pointsPlus}>+{item.taskPoints}</Text>
+          <Text style={[styles.statusLabel, { color: statusColor }]}>{label}</Text>
+        </View>
       </View>
-      <View style={styles.taskInfo}>
-        <Text style={styles.taskTitle}>{item.title}</Text>
-        <Text style={styles.taskMeta}>
-          {item.category}  •  {item.date}
-        </Text>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#6200EE" />
       </View>
-      <View style={styles.taskResultBox}>
-        <Text style={styles.pointsPlus}>+{item.points}</Text>
-        <Text style={[styles.statusLabel, { color: item.statusColor }]}>{item.status}</Text>
-      </View>
-    </View>
-  );
+    );
+  }
+
+  const name = userProfile?.name ?? 'Student';
+  const email = userProfile?.email ?? '';
+  const level = userProfile?.level ?? 1;
+  const totalTasks = userProfile?.totalTasks ?? 0;
+  const totalPoints = userProfile?.totalPoints ?? 0;
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
 
   return (
     <View style={styles.container}>
       <View style={styles.headerBackground}>
         <SafeAreaView edges={['top']}>
-          {/* Top Navbar */}
           <View style={styles.topNavRow}>
             <Text style={styles.headerTitle}>Profile</Text>
             <TouchableOpacity onPress={handleSettings} style={styles.settingsIcon}>
@@ -86,21 +148,17 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Profile Identity Section */}
           <View style={styles.identitySection}>
             <View style={styles.avatarWrapper}>
               <View style={styles.avatarCircle}>
-                <Text style={styles.avatarInitials}>
-                  {USER_PROFILE.name.split(' ').map(n => n[0]).join('')}
-                </Text>
+                <Text style={styles.avatarInitials}>{initials}</Text>
               </View>
-              {/* Optional level badge */}
               <View style={styles.levelBadge}>
-                <Text style={styles.levelBadgeText}>Lvl {USER_PROFILE.level}</Text>
+                <Text style={styles.levelBadgeText}>Lvl {level}</Text>
               </View>
             </View>
-            <Text style={styles.userName}>{USER_PROFILE.name}</Text>
-            <Text style={styles.userEmail}>{USER_PROFILE.email}</Text>
+            <Text style={styles.userName}>{name}</Text>
+            <Text style={styles.userEmail}>{email}</Text>
 
             <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
               <MaterialCommunityIcons name="pencil-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -108,16 +166,15 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Lifetime Stats */}
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{USER_PROFILE.totalTasks}</Text>
-              <Text style={styles.statLabel}>Total Tasks</Text>
+              <Text style={styles.statNumber}>{totalTasks}</Text>
+              <Text style={styles.statLabelText}>Total Tasks</Text>
             </View>
             <View style={styles.verticalDivider} />
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{USER_PROFILE.totalPoints}</Text>
-              <Text style={styles.statLabel}>Lifetime Points</Text>
+              <Text style={styles.statNumber}>{totalPoints}</Text>
+              <Text style={styles.statLabelText}>Lifetime Points</Text>
             </View>
           </View>
         </SafeAreaView>
@@ -130,11 +187,19 @@ export default function ProfileScreen() {
           <MaterialCommunityIcons name="history" size={22} color="#212121" />
         </View>
         <FlatList
-          data={PAST_TASKS}
+          data={pastTasks}
           keyExtractor={(item) => item.id}
           renderItem={renderPastTaskItem}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />
+          }
+          ListEmptyComponent={
+            <View style={{ padding: 30, alignItems: 'center' }}>
+              <Text style={{ color: '#757575', fontSize: 15 }}>No past tasks yet</Text>
+            </View>
+          }
         />
       </View>
     </View>
@@ -254,7 +319,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 2,
   },
-  statLabel: {
+  statLabelText: {
     fontSize: 12,
     color: '#D1C4E9',
   },
@@ -275,7 +340,7 @@ const styles = StyleSheet.create({
     color: '#212121',
   },
   listContent: {
-    paddingBottom: 100, // accommodate bottom tab bar
+    paddingBottom: 100,
   },
   taskCard: {
     backgroundColor: '#FFFFFF',
