@@ -3,12 +3,13 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import StudentTabs from './StudentTabs';
-import { useAuth } from '../contexts/AuthContext';
+import AdminTabs from './AdminTabs';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type RootStackParamList = {
   Auth: undefined;
   StudentRoot: undefined;
-  // AdminRoot will be added here when the admin portal is built
+  AdminRoot: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -33,18 +34,13 @@ export default function RootNavigator() {
   const role = getInitialRoute();
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {role === 'student' ? (
-        // ── Student flow ──────────────────────────────────
-        <Stack.Screen name="StudentRoot" component={StudentTabs} />
-      ) : role === 'admin' ? (
-        // ── Admin flow (placeholder — build later) ────────
-        // Replace this with AdminTabs once built
-        <Stack.Screen name="StudentRoot" component={StudentTabs} />
-      ) : (
-        // ── Not logged in ─────────────────────────────────
-        <Stack.Screen name="Auth" component={LoginScreen} />
-      )}
+    <Stack.Navigator
+      initialRouteName="Auth"
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen name="Auth" component={LoginScreen} />
+      <Stack.Screen name="StudentRoot" component={StudentTabs} />
+      <Stack.Screen name="AdminRoot" component={AdminTabs} />
     </Stack.Navigator>
   );
 }

@@ -10,9 +10,16 @@ import {
   ScrollView,
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
-import { logout, sendPasswordReset } from '../services/auth';
+import { sendPasswordReset } from '../services/auth';
+
+type RootStackParamList = {
+  AdminRoot: undefined;
+  StudentRoot: undefined;
+};
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -20,6 +27,7 @@ export default function LoginScreen() {
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { login } = useAuth();
 
   const handleEmailLogin = async () => {
@@ -27,10 +35,16 @@ export default function LoginScreen() {
       Alert.alert('Error', 'Please enter both email and password.');
       return;
     }
+    
     setLoading(true);
     try {
-      await login(email.trim(), password);
-      // RootNavigator reads the role from Firestore and routes accordingly
+      const { role } = await login(email, password);
+      console.log('Login success. Role:', role);
+      if (role === 'admin') {
+        navigation.replace('AdminRoot');
+      } else {
+        navigation.replace('StudentRoot');
+      }
     } catch (err: any) {
       let message = 'Login failed. Please try again.';
       if (err.code === 'auth/user-not-found') message = 'No account found with this email.';
@@ -39,7 +53,6 @@ export default function LoginScreen() {
       else if (err.code === 'auth/invalid-credential') message = 'Invalid email or password.';
       else if (err.code === 'auth/too-many-requests') message = 'Too many attempts. Try again later.';
       Alert.alert('Login Failed', message);
-    } finally {
       setLoading(false);
     }
   };

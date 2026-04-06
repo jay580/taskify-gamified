@@ -8,7 +8,7 @@ interface AuthContextType {
   firebaseUser: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ role: string }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   firebaseUser: null,
   userProfile: null,
   loading: true,
-  login: async () => {},
+  login: async () => ({ role: 'student' }),
   logout: async () => {},
   refreshProfile: async () => {},
 });
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = async (email: string, password: string): Promise<{ role: string }> => {
     const cred = await loginWithEmail(email, password);
     let profile = await getUserProfile(cred.user.uid);
     // Auto-create profile if missing (for manually created Firebase Auth users)
@@ -69,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
     setUserProfile(profile);
+    return { role: profile.role };
   };
 
   const logout = async () => {

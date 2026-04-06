@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { COLORS, RADIUS, SPACING, SHADOWS } from "../theme";
 
-export default function Card({ children }: any) {
+export default function Card({ children, style }: any) {
   return (
     <View
       style={{
@@ -12,6 +12,7 @@ export default function Card({ children }: any) {
         borderColor: COLORS.border,
         marginBottom: SPACING.md,
         ...SHADOWS.card,
+        ...style,
       }}
     >
       {children}

@@ -7,7 +7,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/Student/Home';
 import QuestsStack from './QuestsStack';
 import LeaderboardScreen from '../screens/Student/Leaderboard';
-import ProfileScreen from '../screens/Student/Profile';
+import { COLORS, SHADOWS } from '../theme';
+import Profile from '@/screens/Student/Profile';
 
 const Tab = createBottomTabNavigator();
 
@@ -29,8 +30,8 @@ export default function StudentTabs() {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#6200EE',
-        tabBarInactiveTintColor: '#A0A0A0',
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.inactive,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
@@ -64,7 +65,7 @@ export default function StudentTabs() {
           // Use a custom button component for the center '+' action
           tabBarButton: (props) => (
             <CustomTabBarButton {...props}>
-              <MaterialCommunityIcons name="plus" size={32} color="#FFFFFF" />
+              <MaterialCommunityIcons name="plus" size={32} color={COLORS.white} />
             </CustomTabBarButton>
           ),
         }}
@@ -88,7 +89,7 @@ export default function StudentTabs() {
       />
       <Tab.Screen
         name="ProfileTab"
-        component={ProfileScreen}
+        component={Profile}
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => (
@@ -105,10 +106,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     elevation: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.surface,
     height: 70,
     borderTopWidth: 1,
-    borderTopColor: '#f2f2f2',
+    borderTopColor: COLORS.divider,
     paddingBottom: 10,
     paddingTop: 10,
   },
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
     top: -25,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6200EE',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
     borderRadius: 35,
-    backgroundColor: '#6200EE',
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -1,11 +1,11 @@
 import { View, Text } from "react-native";
-import { COLORS, RADIUS, SPACING } from "../theme";
+import { COLORS, SPACING, TYPOGRAPHY } from '@/theme';
 
-export default function Badge({ label }: any) {
+export default function Badge({ label, backgroundColor = COLORS.accent, textColor = COLORS.black }: any) {
   return (
     <View
       style={{
-        backgroundColor: COLORS.accent,
+        backgroundColor,
         paddingHorizontal: SPACING.md,
         paddingVertical: 6,
         borderRadius: 20,
@@ -15,7 +15,9 @@ export default function Badge({ label }: any) {
         elevation: 2,
       }}
     >
-      <Text style={{ fontWeight: "600", color: COLORS.black }}>{label}</Text>
+      <Text style={[TYPOGRAPHY.small, { color: textColor }]}>
+        {label}
+      </Text>
     </View>
   );
 }
