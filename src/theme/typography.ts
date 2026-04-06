@@ -1,49 +1,57 @@
-import { StyleSheet } from "react-native";
-
-export const TYPOGRAPHY = StyleSheet.create({
+export const TYPOGRAPHY = {
+  hero: {
+    fontSize: 28,
+    fontWeight: "900" as const,
+    letterSpacing: 0.5,
+  },
   header: {
     fontSize: 26,
-    fontWeight: "700",
+    fontWeight: "800" as const,
     letterSpacing: 0.3,
   },
-  title: {
+  sectionTitle: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: "800" as const,
     letterSpacing: 0.3,
   },
-  heading: {
+  cardTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700" as const,
     letterSpacing: 0.2,
   },
   body: {
+    fontSize: 15,
+    fontWeight: "500" as const,
+    letterSpacing: 0.1,
+  },
+  bodyMuted: {
     fontSize: 14,
-    fontWeight: "400",
+    fontWeight: "500" as const,
     letterSpacing: 0.1,
   },
   small: {
     fontSize: 12,
-    fontWeight: "400",
+    fontWeight: "500" as const,
     letterSpacing: 0.05,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800" as const,
+    letterSpacing: 0.3,
+  },
+  heading: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    letterSpacing: 0.2,
   },
   large: {
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: "700" as const,
     letterSpacing: 0.2,
-  },
-  avatar: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: 0.3,
   },
   badge: {
     fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.05,
+    fontWeight: "800" as const,
+    letterSpacing: 0.5,
   },
-  taskTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    letterSpacing: 0.1,
-  },
-});
+};

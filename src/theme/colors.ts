@@ -1,34 +1,38 @@
 export const COLORS = { 
-primary: "#0B1F3A",      // Navy (main)  
-secondary: "#D62828",    // Red (actions)
- 
-accent: "#F4C430",      
-accentLight: "#FFF3CD",
-background: "#DCE7F5",    
-surface: "#FFFFFF",
-  surfaceAlt: "#C9DAF0",
-  card: "#FFFFFF",  
-text: "#0F172A",  
-muted: "#64748B",  
-border: "#B6C8E0",
+  primary: "#1A202C",      // Deep Navy/Dark background
+  secondary: "#E53E3E",    // Vibrant Red 
+  
+  accent: "#ECC94B",       // Bright Yellow 
+  accentLight: "#FEFCBF",
+  backgroundPrimary: "#0B1121",   // Deepest background
+  backgroundSecondary: "#0F172A", // Second level background
+  background: "#0B1121",   // Backward compatibility
+  surface: "#1E293B",      // Card background - lighter than background
+  surfaceAlt: "#334155",   // Alternative surface logic
+  card: "#1E293B",         
+  text: "#F8FAFC",         // White/Light grey for primary text
+  muted: "#94A3B8",        // Muted text
+  border: "#334155",       // Card borders
+  
   // States  
-success: "#14A44D",  
-  successLight: "#E8F5E9",
-  warning: "#F59E0B",  
-  gold: "#FFD700",
-  error: "#DC2626",
+  success: "#48BB78",      // Vibrant Green
+  successLight: "#C6F6D5",
+  warning: "#ED8936",      
+  gold: "#ECC94B",
+  error: "#E53E3E",        // Vibrant Red
+  
   // Additional
   white: "#FFFFFF",
-  inactive: "#94A3B8",
-  textDark: "#1A1A1A",
-  mutedText: "#666666",
-  divider: "#E0E0E0",
-  link: "#6D28D9",
-  textSecondary: "#334155",
-  textInactive: "#9CA3AF",
-  overlay: "rgba(0,0,0,0.4)",
-  overlayLight: "rgba(255,255,255,0.2)",
-  overlayDark: "rgba(0,0,0,0.15)",
-  primaryLight: "#F3E5F5",
+  inactive: "#475569",
+  textDark: "#F8FAFC",     // In dark mode, textDark is actually light
+  mutedText: "#94A3B8",
+  divider: "#334155",
+  link: "#9F7AEA",         // Purple
+  textSecondary: "#CBD5E1",
+  textInactive: "#64748B",
+  overlay: "rgba(0,0,0,0.6)",
+  overlayLight: "rgba(255,255,255,0.1)",
+  overlayDark: "rgba(0,0,0,0.8)",
+  primaryLight: "#2D3748",
   black: "#000000",
 };

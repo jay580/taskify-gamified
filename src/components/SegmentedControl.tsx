@@ -33,31 +33,31 @@ export default function SegmentedControl({ options, selectedIndex, onChange }: S
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    padding: 4,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: RADIUS.lg,
+    padding: 6,
     marginBottom: SPACING.lg,
   },
   option: {
     flex: 1,
     paddingVertical: SPACING.sm,
     alignItems: 'center',
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.md,
   },
   selectedOption: {
-    backgroundColor: COLORS.surface,
-    elevation: 2,
+    backgroundColor: COLORS.accent,
+    elevation: 3,
     shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowRadius: 3,
   },
   text: {
-    color: '#666',
-    fontWeight: '500',
+    color: COLORS.mutedText,
+    fontWeight: '600',
   },
   selectedText: {
-    color: COLORS.primary,
-    fontWeight: '700',
+    color: COLORS.black,
+    fontWeight: '800',
   },
 });

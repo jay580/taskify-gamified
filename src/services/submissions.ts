@@ -73,7 +73,7 @@ export const approveSubmission = async (submission: Submission, taskPoints: numb
     // Trigger Notification
     await createNotification(
       submission.studentId, 
-      `Your submission for "${submission.title}" was approved! 🎉 You earned ${taskPoints} points.`, 
+      `Your submission for "${submission.title}" was approved!  You earned ${taskPoints} points.`, 
       'approve',
       batch
     );

@@ -3,14 +3,17 @@ import { StyleSheet, View } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
 import { RootNavigator } from './src/navigation';
+import { ToastProvider } from './src/contexts/ToastContext';
 
 export default function App() {
   return (
     <PaperProvider>
-      <NavigationContainer>
-        <RootNavigator />
-        <StatusBar style="auto" />
-      </NavigationContainer>
+      <ToastProvider>
+        <NavigationContainer>
+          <RootNavigator />
+          <StatusBar style="light" />
+        </NavigationContainer>
+      </ToastProvider>
     </PaperProvider>
   );
 }
