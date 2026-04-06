@@ -16,6 +16,7 @@ export interface UserSchema {
   isActive: boolean;
   isSuspended: boolean;
   suspensionEnd?: Date;
+  profileImage: string | null;
 }
 
 export const createStudent = async (name: string, room: string) => {
@@ -42,6 +43,7 @@ export const createStudent = async (name: string, room: string) => {
       badges: [],
       isActive: true,
       isSuspended: false,
+      profileImage: null,
     };
 
     await setDoc(doc(db, 'users', uid), newStudent);
@@ -93,6 +95,43 @@ export const updateUserPoints = async (userId: string, points: number) => {
     });
   } catch (error) {
     console.error("Error updating user points: ", error);
+    throw error;
+  }
+};
+
+export const awardAdminPoints = async (userId: string, points: number) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      pointsThisMonth: increment(points),
+    });
+  } catch (error) {
+    console.error("Error awarding points: ", error);
+    throw error;
+  }
+};
+
+import { deleteField } from 'firebase/firestore';
+
+export const updateStudentSuspension = async (userId: string, durationDays: number | null) => {
+  if (!userId) throw new Error("Invalid user ID");
+  try {
+    const userRef = doc(db, 'users', userId);
+    if (durationDays === null || durationDays <= 0) {
+      await updateDoc(userRef, {
+        isSuspended: false,
+        suspensionEnd: deleteField()
+      });
+    } else {
+      const end = new Date();
+      end.setDate(end.getDate() + durationDays);
+      await updateDoc(userRef, {
+        isSuspended: true,
+        suspensionEnd: end
+      });
+    }
+  } catch (error) {
+    console.error("Error updating suspension: ", error);
     throw error;
   }
 };

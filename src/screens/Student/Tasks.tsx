@@ -19,6 +19,7 @@ import {
   getCompletedSubmissions,
 } from '../../services/firestore';
 import type { Task, Submission, TaskCategory } from '../../types';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
 
 const PRIMARY_TABS = ['Available', 'Submissions', 'Completed'];
 const CATEGORIES = ['All', 'Academic', 'Domestic', 'Sports', 'Special'];
@@ -26,20 +27,20 @@ const CATEGORIES = ['All', 'Academic', 'Domestic', 'Sports', 'Special'];
 // Styling helpers
 const getCategoryStyle = (cat: TaskCategory) => {
   switch (cat) {
-    case 'Academic': return { iconColor: '#1976D2', tagColor: '#E3F2FD', tagTextColor: '#1976D2' };
-    case 'Domestic': return { iconColor: '#388E3C', tagColor: '#E8F5E9', tagTextColor: '#388E3C' };
-    case 'Sports':   return { iconColor: '#F57C00', tagColor: '#FFF3E0', tagTextColor: '#F57C00' };
-    case 'Special':  return { iconColor: '#6200EE', tagColor: '#F3E5F5', tagTextColor: '#6200EE' };
-    default:         return { iconColor: '#6200EE', tagColor: '#F3E5F5', tagTextColor: '#6200EE' };
+    case 'Academic': return { iconColor: COLORS.link, tagColor: COLORS.surface, tagTextColor: COLORS.link };
+    case 'Domestic': return { iconColor: COLORS.success, tagColor: COLORS.surface, tagTextColor: COLORS.success };
+    case 'Sports':   return { iconColor: COLORS.warning, tagColor: COLORS.surface, tagTextColor: COLORS.warning };
+    case 'Special':  return { iconColor: COLORS.secondary, tagColor: COLORS.surface, tagTextColor: COLORS.secondary };
+    default:         return { iconColor: COLORS.secondary, tagColor: COLORS.surface, tagTextColor: COLORS.secondary };
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'pending':  return '#FFA000';
-    case 'rejected': return '#D32F2F';
-    case 'approved': return '#4CAF50';
-    default:         return '#757575';
+    case 'pending':  return COLORS.warning;
+    case 'rejected': return COLORS.error;
+    case 'approved': return COLORS.success;
+    default:         return COLORS.muted;
   }
 };
 
@@ -184,7 +185,7 @@ export default function TasksScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#6200EE" />
+        <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
   }
@@ -196,7 +197,7 @@ export default function TasksScreen() {
           <View style={styles.headerTopRow}>
             <Text style={styles.headerTitle}>Tasks</Text>
             <TouchableOpacity>
-              <MaterialCommunityIcons name="dots-horizontal" size={28} color="#FFF" />
+              <MaterialCommunityIcons name="dots-horizontal" size={28} color={COLORS.text} />
             </TouchableOpacity>
           </View>
 
@@ -246,7 +247,7 @@ export default function TasksScreen() {
         renderItem={renderTaskCard}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No tasks found.</Text>
@@ -260,114 +261,109 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: COLORS.backgroundPrimary,
   },
   headerBackground: {
-    backgroundColor: '#5E35B1',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+    backgroundColor: COLORS.surface,
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xl,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 20,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.hero,
+    color: COLORS.text,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: 25,
+    backgroundColor: COLORS.overlayDark,
+    borderRadius: RADIUS.xl,
     padding: 4,
   },
   segmentButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
   },
   segmentButtonActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.white,
   },
   segmentText: {
-    color: '#D1C4E9',
+    ...TYPOGRAPHY.small,
     fontWeight: '600',
-    fontSize: 13,
+    color: COLORS.muted,
   },
   segmentTextActive: {
-    color: '#5E35B1',
+    color: COLORS.primary,
   },
   filterSection: {
-    marginTop: -20,
+    marginTop: -SPACING.lg,
   },
   filterScroll: {
-    paddingHorizontal: 15,
-    paddingBottom: 15,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
   },
   filterPill: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.lg,
     marginHorizontal: 5,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    ...SHADOWS.card,
   },
   filterPillActive: {
-    backgroundColor: '#6200EE',
+    backgroundColor: COLORS.secondary,
   },
   filterPillInactive: {
-    backgroundColor: '#333333',
+    backgroundColor: COLORS.surfaceAlt,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.small,
     fontWeight: '600',
-    fontSize: 13,
+    color: COLORS.white,
   },
   filterPillTextInactive: {
-    color: '#E0E0E0',
+    ...TYPOGRAPHY.small,
     fontWeight: '600',
-    fontSize: 13,
+    color: COLORS.textSecondary,
   },
   listContent: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
     paddingBottom: 100,
   },
   cardContainer: {
-    backgroundColor: '#2C2C2E',
-    borderRadius: 20,
-    padding: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   cardIconBox: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
   cardInfo: {
     flex: 1,
   },
   cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: '600',
-    marginBottom: 6,
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
   },
   cardTagsRow: {
     flexDirection: 'row',
@@ -375,44 +371,41 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   categoryTag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.xs,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: RADIUS.sm,
   },
   categoryTagText: {
-    fontSize: 10,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.badge,
   },
   dateText: {
-    color: '#A0A0A0',
-    fontSize: 12,
-    marginLeft: 6,
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
+    marginLeft: SPACING.xs,
   },
   statusText: {
-    fontSize: 12,
+    ...TYPOGRAPHY.small,
     fontWeight: 'bold',
   },
   cardPointsBox: {
     alignItems: 'flex-end',
-    marginLeft: 10,
+    marginLeft: SPACING.sm,
   },
   pointsPlus: {
-    color: '#64B5F6',
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.cardTitle,
+    color: COLORS.link,
   },
   pointsLabel: {
-    color: '#A0A0A0',
-    fontSize: 10,
+    ...TYPOGRAPHY.badge,
+    color: COLORS.muted,
     marginTop: 2,
-    fontWeight: '600',
   },
   emptyContainer: {
-    padding: 30,
+    padding: SPACING.xl,
     alignItems: 'center',
   },
   emptyText: {
-    color: '#757575',
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
+    color: COLORS.muted,
   },
 });

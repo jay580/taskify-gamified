@@ -26,21 +26,22 @@ export default function RootNavigator() {
     );
   }
 
-  const getInitialRoute = () => {
-    if (!firebaseUser || !userProfile) return 'unauth';
-    return userProfile.role; // 'student' | 'admin'
-  };
-
-  const role = getInitialRoute();
+  // Determine which screens to show based on auth state
+  const isLoggedIn = firebaseUser && userProfile;
+  const role = userProfile?.role;
 
   return (
-    <Stack.Navigator
-      initialRouteName="Auth"
-      screenOptions={{ headerShown: false }}
-    >
-      <Stack.Screen name="Auth" component={LoginScreen} />
-      <Stack.Screen name="StudentRoot" component={StudentTabs} />
-      <Stack.Screen name="AdminRoot" component={AdminTabs} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!isLoggedIn ? (
+        // Not logged in - show auth screen
+        <Stack.Screen name="Auth" component={LoginScreen} />
+      ) : role === 'admin' ? (
+        // Admin user
+        <Stack.Screen name="AdminRoot" component={AdminTabs} />
+      ) : (
+        // Student user
+        <Stack.Screen name="StudentRoot" component={StudentTabs} />
+      )}
     </Stack.Navigator>
   );
 }

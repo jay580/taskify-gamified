@@ -20,6 +20,7 @@ import {
   getLeaderboard,
 } from '../../services/firestore';
 import type { Task, AppSettings } from '../../types';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -76,18 +77,18 @@ export default function HomeScreen() {
 
   const getCategoryColor = (cat: string) => {
     switch (cat) {
-      case 'Academic': return '#1976D2';
-      case 'Domestic': return '#388E3C';
-      case 'Sports': return '#F57C00';
-      case 'Special': return '#6200EE';
-      default: return '#6200EE';
+      case 'Academic': return COLORS.link;
+      case 'Domestic': return COLORS.success;
+      case 'Sports': return COLORS.warning;
+      case 'Special': return COLORS.secondary;
+      default: return COLORS.secondary;
     }
   };
 
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#6200EE" />
+        <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
   }
@@ -101,7 +102,7 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />}
       >
         {/* TOP PURPLE HEADER SECTION */}
         <View style={styles.headerBackground}>
@@ -120,10 +121,10 @@ export default function HomeScreen() {
               </View>
               <View style={styles.iconButtonsRow}>
                 <TouchableOpacity style={styles.iconButton}>
-                  <MaterialCommunityIcons name="magnify" size={24} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="magnify" size={24} color={COLORS.white} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconButton}>
-                  <MaterialCommunityIcons name="bell-outline" size={24} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.white} />
                   <View style={styles.notificationBadge} />
                 </TouchableOpacity>
               </View>
@@ -132,17 +133,17 @@ export default function HomeScreen() {
             {/* Stats Row */}
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <MaterialCommunityIcons name="trophy-outline" size={28} color="#FFD700" />
+                <MaterialCommunityIcons name="trophy-outline" size={28} color={COLORS.accent} />
                 <Text style={styles.statLabel}>Rank</Text>
                 <Text style={styles.statValue}>#{rank || '-'}</Text>
               </View>
               <View style={styles.statCard}>
-                <MaterialCommunityIcons name="star-outline" size={28} color="#FFB300" />
+                <MaterialCommunityIcons name="star-outline" size={28} color={COLORS.gold} />
                 <Text style={styles.statLabel}>Points</Text>
                 <Text style={styles.statValue}>{points}</Text>
               </View>
               <View style={styles.statCard}>
-                <MaterialCommunityIcons name="trending-up" size={28} color="#00E676" />
+                <MaterialCommunityIcons name="trending-up" size={28} color={COLORS.success} />
                 <Text style={styles.statLabel}>Streak</Text>
                 <Text style={styles.statValue}>{streak}d</Text>
               </View>
@@ -165,11 +166,11 @@ export default function HomeScreen() {
               const isExpired = timeText === 'Expired';
               return (
                 <View key={quest.id} style={styles.questCard}>
-                  <View style={[styles.questIconBox, { backgroundColor: '#F3E5F5' }]}>
+                  <View style={[styles.questIconBox, { backgroundColor: COLORS.surfaceAlt }]}>
                     <MaterialCommunityIcons
                       name={isExpired ? 'check-circle-outline' : 'clock-outline'}
                       size={28}
-                      color={isExpired ? '#4CAF50' : color}
+                      color={isExpired ? COLORS.success : color}
                     />
                   </View>
                   <View style={styles.questInfo}>
@@ -196,7 +197,7 @@ export default function HomeScreen() {
           <View style={styles.rewardContainer}>
             <View style={styles.rewardCard}>
               <View style={styles.rewardHeader}>
-                <MaterialCommunityIcons name="gift-outline" size={20} color="#FFFFFF" />
+                <MaterialCommunityIcons name="gift-outline" size={20} color={COLORS.white} />
                 <Text style={styles.rewardTitleText}>REWARDS THIS MONTH</Text>
               </View>
               <Text style={styles.rewardMainTitle}>🥇 {settings.reward1st}</Text>
@@ -215,7 +216,7 @@ export default function HomeScreen() {
         {settings?.announcement && (
           <View style={styles.announcementContainer}>
             <View style={styles.announcementCard}>
-              <MaterialCommunityIcons name="bullhorn-outline" size={24} color="#1976D2" />
+              <MaterialCommunityIcons name="bullhorn-outline" size={24} color={COLORS.link} />
               <Text style={styles.announcementText}>{settings.announcement}</Text>
             </View>
           </View>
@@ -231,33 +232,33 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: COLORS.backgroundPrimary,
   },
   scrollContent: {
     flexGrow: 1,
   },
   headerBackground: {
-    backgroundColor: '#5E35B1',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    backgroundColor: COLORS.surface,
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.lg,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
-    marginTop: 20,
+    marginBottom: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   avatarContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#FFB300',
+    backgroundColor: COLORS.gold,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#9575CD',
+    borderColor: COLORS.border,
   },
   avatar: {
     width: 50,
@@ -266,16 +267,15 @@ const styles = StyleSheet.create({
   },
   profileTextContainer: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: SPACING.md,
   },
   welcomeText: {
-    fontSize: 14,
-    color: '#D1C4E9',
+    ...TYPOGRAPHY.bodyMuted,
+    color: COLORS.muted,
   },
   nameText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.large,
+    color: COLORS.text,
   },
   iconButtonsRow: {
     flexDirection: 'row',
@@ -284,10 +284,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: COLORS.overlayLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
+    marginLeft: SPACING.sm,
   },
   notificationBadge: {
     position: 'absolute',
@@ -296,175 +296,168 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF5252',
+    backgroundColor: COLORS.error,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 25,
+    marginBottom: SPACING.xl,
   },
   statCard: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 15,
-    padding: 15,
+    backgroundColor: COLORS.overlayLight,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
     alignItems: 'center',
     width: '31%',
   },
   statLabel: {
-    color: '#D1C4E9',
-    fontSize: 13,
-    marginTop: 8,
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
+    marginTop: SPACING.xs,
     marginBottom: 4,
   },
   statValue: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.large,
+    color: COLORS.text,
   },
   sectionTitleDark: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 10,
+    ...TYPOGRAPHY.large,
+    color: COLORS.text,
+    marginTop: SPACING.sm,
   },
   questsContainer: {
-    paddingHorizontal: 20,
-    marginTop: 15,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
   },
   emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 30,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.xl,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   emptyText: {
-    color: '#757575',
-    fontSize: 15,
+    ...TYPOGRAPHY.body,
+    color: COLORS.muted,
   },
   questCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 15,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 3,
+    ...SHADOWS.card,
   },
   questIconBox: {
     width: 50,
     height: 50,
-    borderRadius: 15,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
   questInfo: {
     flex: 1,
   },
   questTitle: {
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: '600',
-    color: '#212121',
-    marginBottom: 6,
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
   },
   questTagsRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   questTag: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 8,
+    backgroundColor: COLORS.surfaceAlt,
+    paddingHorizontal: SPACING.xs,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: RADIUS.sm,
   },
   questTagText: {
-    fontSize: 12,
-    color: '#757575',
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
   },
   questTimeText: {
-    fontSize: 12,
-    color: '#9E9E9E',
-    marginLeft: 8,
+    ...TYPOGRAPHY.small,
+    color: COLORS.mutedText,
+    marginLeft: SPACING.xs,
   },
   questPointsBox: {
     alignItems: 'flex-end',
   },
   pointsPlus: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#6200EE',
+    ...TYPOGRAPHY.cardTitle,
+    color: COLORS.secondary,
   },
   pointsLabel: {
-    fontSize: 10,
-    color: '#9E9E9E',
+    ...TYPOGRAPHY.badge,
+    color: COLORS.muted,
     marginTop: 2,
   },
   rewardContainer: {
-    paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 25,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xl,
   },
   rewardCard: {
-    backgroundColor: '#FF6B6B',
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: COLORS.secondary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
   },
   rewardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   rewardTitleText: {
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.small,
     fontWeight: 'bold',
-    marginLeft: 8,
+    color: COLORS.white,
+    marginLeft: SPACING.xs,
     letterSpacing: 1,
   },
   rewardMainTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 10,
+    ...TYPOGRAPHY.header,
+    color: COLORS.white,
+    marginBottom: SPACING.sm,
   },
   rewardSubtext: {
-    fontSize: 14,
-    color: '#FFE2E2',
+    ...TYPOGRAPHY.bodyMuted,
+    color: COLORS.accentLight,
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   rewardButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    backgroundColor: COLORS.white,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.xl,
     alignSelf: 'flex-start',
   },
   rewardButtonText: {
-    color: '#E64A19',
+    ...TYPOGRAPHY.bodyMuted,
     fontWeight: 'bold',
-    fontSize: 14,
+    color: COLORS.secondary,
   },
   announcementContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
   },
   announcementCard: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 15,
-    padding: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
   },
   announcementText: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#1976D2',
+    marginLeft: SPACING.sm,
+    ...TYPOGRAPHY.bodyMuted,
+    color: COLORS.link,
     lineHeight: 20,
   },
 });

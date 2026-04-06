@@ -15,12 +15,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
 import { submitTask } from '../../services/firestore';
 import type { Task, TaskCategory } from '../../types';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
 
 const CATEGORY_COLORS: Record<TaskCategory, string> = {
-  Academic: '#1976D2',
-  Domestic: '#388E3C',
-  Sports: '#F57C00',
-  Special: '#6200EE',
+  Academic: COLORS.link,
+  Domestic: COLORS.success,
+  Sports: COLORS.warning,
+  Special: COLORS.secondary,
 };
 
 const CATEGORY_ICONS: Record<TaskCategory, keyof typeof Ionicons.glyphMap> = {
@@ -65,15 +66,20 @@ export default function TaskDetail({ route, navigation }: Props) {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 
@@ -84,14 +90,19 @@ export default function TaskDetail({ route, navigation }: Props) {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
     }
   };
 
@@ -134,7 +145,7 @@ export default function TaskDetail({ route, navigation }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Task Details</Text>
         <View style={{ width: 40 }} />
@@ -144,7 +155,7 @@ export default function TaskDetail({ route, navigation }: Props) {
         {/* Task Info Card */}
         <View style={styles.taskCard}>
           <View style={[styles.iconBox, { backgroundColor: categoryColor }]}>
-            <Ionicons name={categoryIcon} size={28} color="#FFFFFF" />
+            <Ionicons name={categoryIcon} size={28} color={COLORS.white} />
           </View>
           
           <Text style={styles.taskTitle}>{task.title}</Text>
@@ -157,7 +168,7 @@ export default function TaskDetail({ route, navigation }: Props) {
           </View>
 
           <View style={styles.pointsRow}>
-            <Ionicons name="star" size={20} color="#FFD700" />
+            <Ionicons name="star" size={20} color={COLORS.gold} />
             <Text style={styles.pointsText}>+{task.points} POINTS</Text>
           </View>
 
@@ -179,17 +190,17 @@ export default function TaskDetail({ route, navigation }: Props) {
                   style={styles.removeButton}
                   onPress={() => setImageUri(null)}
                 >
-                  <Ionicons name="close-circle" size={28} color="#FF5252" />
+                  <Ionicons name="close-circle" size={28} color={COLORS.error} />
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.uploadButtons}>
                 <TouchableOpacity style={styles.uploadButton} onPress={takePhoto}>
-                  <Ionicons name="camera" size={32} color="#6200EE" />
+                  <Ionicons name="camera" size={32} color={COLORS.secondary} />
                   <Text style={styles.uploadText}>Take Photo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-                  <Ionicons name="image" size={32} color="#6200EE" />
+                  <Ionicons name="image" size={32} color={COLORS.secondary} />
                   <Text style={styles.uploadText}>Gallery</Text>
                 </TouchableOpacity>
               </View>
@@ -201,7 +212,7 @@ export default function TaskDetail({ route, navigation }: Props) {
           <TextInput
             style={styles.notesInput}
             placeholder="Add any notes about your submission..."
-            placeholderTextColor="#888"
+            placeholderTextColor={COLORS.muted}
             multiline
             numberOfLines={4}
             value={notes}
@@ -216,10 +227,10 @@ export default function TaskDetail({ route, navigation }: Props) {
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <>
-                <Ionicons name="paper-plane" size={20} color="#FFFFFF" />
+                <Ionicons name="paper-plane" size={20} color={COLORS.white} />
                 <Text style={styles.submitButtonText}>Submit for Approval</Text>
               </>
             )}
@@ -233,134 +244,131 @@ export default function TaskDetail({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: COLORS.backgroundPrimary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: '#1E1E1E',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.surface,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: COLORS.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.cardTitle,
+    color: COLORS.text,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: SPACING.md,
   },
   taskCard: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
   },
   iconBox: {
     width: 56,
     height: 56,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   taskTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 12,
+    ...TYPOGRAPHY.sectionTitle,
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: SPACING.sm,
   },
   categoryBadge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 12,
+    borderRadius: RADIUS.sm,
+    marginRight: SPACING.sm,
   },
   categoryText: {
-    fontSize: 12,
+    ...TYPOGRAPHY.small,
     fontWeight: '600',
   },
   deadline: {
-    fontSize: 13,
-    color: '#888',
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
   },
   pointsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   pointsText: {
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: '700',
-    color: '#FFD700',
-    marginLeft: 6,
+    color: COLORS.gold,
+    marginLeft: SPACING.xs,
   },
   descriptionLabel: {
-    fontSize: 14,
+    ...TYPOGRAPHY.bodyMuted,
     fontWeight: '600',
-    color: '#888',
-    marginBottom: 8,
+    color: COLORS.muted,
+    marginBottom: SPACING.xs,
   },
   description: {
-    fontSize: 15,
-    color: '#CCCCCC',
+    ...TYPOGRAPHY.body,
+    color: COLORS.textSecondary,
     lineHeight: 22,
   },
   submitSection: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
     marginBottom: 40,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 20,
+    ...TYPOGRAPHY.cardTitle,
+    color: COLORS.text,
+    marginBottom: SPACING.lg,
   },
   fieldLabel: {
-    fontSize: 14,
+    ...TYPOGRAPHY.bodyMuted,
     fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 10,
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
   },
   photoSection: {
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   uploadButtons: {
     flexDirection: 'row',
-    gap: 16,
+    gap: SPACING.md,
   },
   uploadButton: {
     flex: 1,
-    backgroundColor: '#2C2C2E',
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: RADIUS.md,
+    padding: SPACING.xl,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#3C3C3E',
+    borderColor: COLORS.border,
     borderStyle: 'dashed',
   },
   uploadText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    marginTop: 8,
+    ...TYPOGRAPHY.bodyMuted,
+    color: COLORS.text,
+    marginTop: SPACING.xs,
   },
   previewContainer: {
     position: 'relative',
@@ -368,39 +376,39 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
   },
   removeButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#1E1E1E',
+    top: SPACING.xs,
+    right: SPACING.xs,
+    backgroundColor: COLORS.surface,
     borderRadius: 14,
   },
   notesInput: {
-    backgroundColor: '#2C2C2E',
-    borderRadius: 12,
-    padding: 16,
-    color: '#FFFFFF',
-    fontSize: 15,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    color: COLORS.text,
+    ...TYPOGRAPHY.body,
     minHeight: 100,
-    marginBottom: 24,
+    marginBottom: SPACING.xl,
   },
   submitButton: {
-    backgroundColor: '#6200EE',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: COLORS.secondary,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: SPACING.xs,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: '600',
+    color: COLORS.white,
   },
 });

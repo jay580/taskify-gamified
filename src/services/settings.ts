@@ -1,4 +1,4 @@
-import { doc, setDoc, getDocs, collection, writeBatch, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, writeBatch, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 export const saveAnnouncement = async (announcement: string, expiry: Date) => {
@@ -43,41 +43,43 @@ export const getRewards = async () => {
 
 export const resetMonth = async () => {
   try {
-    // 1. Fetch leaderboard
     const usersSnapshot = await getDocs(collection(db, 'users'));
-    const allUsers = usersSnapshot.docs.map(d => ({ id: d.id,uid:d.id, ...d.data() })) as any[];
+    const allUsers = usersSnapshot.docs.map(d => ({ id: d.id, uid: d.id, ...d.data() })) as any[];
     
-    // Sort students by points descending
     const students = allUsers.filter(u => u.role === 'student');
-    students.sort((a, b) => b.pointsThisMonth - a.pointsThisMonth);
+    students.sort((a, b) => (b.pointsThisMonth || 0) - (a.pointsThisMonth || 0));
     
-    const topStudents = students.slice(0, 10).map(s => ({
-      uid: s.uid,
-      name: s.name,
-      points: s.pointsThisMonth
-    }));
-
-    // Start batch
     const batch = writeBatch(db);
 
-    // 2. Save leaderboard history
-    const monthlyResultRef = doc(collection(db, 'settings', 'global', 'monthlyResults'));
+    // Save leaderboard safe history
+    const monthlyResultRef = doc(collection(db, 'monthlyResults'));
+    const safeTopStudents = students.slice(0, 10).map(s => ({
+      uid: s.uid ?? null,
+      name: s.name ?? "Unknown",
+      points: s.pointsThisMonth ?? 0
+    }));
+
     batch.set(monthlyResultRef, {
-      month: Timestamp.now(),
-      leaderboard: topStudents
+      month: new Date().toISOString().slice(0, 7) ,
+      leaderboard: safeTopStudents
     });
 
-    // 3. Reset points for all students
-    students.forEach(student => {
-      batch.update(doc(db, 'users', student.uid), {
-        pointsThisMonth: 0
-      });
+    // Reset loop
+    usersSnapshot.forEach((userDoc) => {
+      const data = userDoc.data();
+      if (data.role === 'student') {
+        const userRef = doc(db, "users", userDoc.id);
+        batch.update(userRef, {
+          pointsThisMonth: 0,
+          totalTasksDone: 0,
+        });
+      }
     });
 
-    // 4. Update last reset date
+    // Update settings
     const settingsRef = doc(db, 'settings', 'global');
     batch.set(settingsRef, {
-      lastResetAt: Timestamp.now()
+      lastResetAt: serverTimestamp()
     }, { merge: true });
 
     await batch.commit();

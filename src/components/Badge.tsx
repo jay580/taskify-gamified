@@ -7,12 +7,9 @@ export default function Badge({ label, backgroundColor = COLORS.accent, textColo
       style={{
         backgroundColor,
         paddingHorizontal: SPACING.md,
-        paddingVertical: 6,
+        paddingVertical: 4,
         borderRadius: 20,
-        shadowColor: COLORS.black,
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        alignSelf: 'flex-start',
       }}
     >
       <Text style={[TYPOGRAPHY.small, { color: textColor }]}>

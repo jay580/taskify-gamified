@@ -13,18 +13,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeaderboard } from '../../services/firestore';
 import type { LeaderboardEntry } from '../../types';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
 
 const TABS = ['This month'];
 
 // Assign colors to top 3 + rest
 const PODIUM_STYLES = [
-  { color: '#E3F2FD', textColor: '#1976D2' }, // 1st
-  { color: '#E8F5E9', textColor: '#388E3C' }, // 2nd
-  { color: '#FFF3E0', textColor: '#F57C00' }, // 3rd
+  { color: COLORS.surface, textColor: COLORS.link }, // 1st
+  { color: COLORS.surface, textColor: COLORS.success }, // 2nd
+  { color: COLORS.surface, textColor: COLORS.warning }, // 3rd
 ];
 
-const AVATAR_COLORS = ['#F3E5F5', '#E3F2FD', '#FFF3E0', '#E8F5E9', '#ECEFF1'];
-const AVATAR_TEXT_COLORS = ['#7B1FA2', '#1976D2', '#F57C00', '#388E3C', '#455A64'];
+const AVATAR_COLORS = [COLORS.surface, COLORS.surface, COLORS.surface, COLORS.surface, COLORS.surface];
+const AVATAR_TEXT_COLORS = [COLORS.link, COLORS.success, COLORS.warning, COLORS.secondary, COLORS.muted];
 
 export default function LeaderboardScreen() {
   const { userProfile } = useAuth();
@@ -142,7 +143,7 @@ export default function LeaderboardScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#6200EE" />
+        <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
   }
@@ -197,7 +198,7 @@ export default function LeaderboardScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.flatListContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
           }
         />
       </View>
@@ -208,70 +209,69 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.backgroundPrimary,
   },
   headerBackground: {
-    backgroundColor: '#5E35B1',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    backgroundColor: COLORS.surface,
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
     paddingBottom: 40,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.hero,
+    color: COLORS.text,
   },
   daysLeftPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    backgroundColor: COLORS.overlayDark,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.lg,
   },
   redDot: {
     width: 8,
     height: 8,
-    backgroundColor: '#FF5252',
+    backgroundColor: COLORS.error,
     borderRadius: 4,
-    marginRight: 6,
+    marginRight: SPACING.xs,
   },
   daysLeftText: {
-    color: '#E0E0E0',
-    fontSize: 12,
+    ...TYPOGRAPHY.small,
     fontWeight: '600',
+    color: COLORS.textSecondary,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: 25,
+    backgroundColor: COLORS.overlayDark,
+    borderRadius: RADIUS.xl,
     padding: 4,
-    marginBottom: 30,
+    marginBottom: SPACING.xl,
   },
   segmentButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
   },
   segmentButtonActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.white,
   },
   segmentText: {
-    color: '#D1C4E9',
+    ...TYPOGRAPHY.small,
     fontWeight: '600',
-    fontSize: 13,
+    color: COLORS.muted,
   },
   segmentTextActive: {
-    color: '#5E35B1',
+    color: COLORS.primary,
   },
   podiumContainer: {
     flexDirection: 'row',
@@ -282,10 +282,10 @@ const styles = StyleSheet.create({
   podiumItem: {
     alignItems: 'center',
     width: 80,
-    marginHorizontal: 10,
+    marginHorizontal: SPACING.sm,
   },
   podiumCenter: {
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   podiumAvatar: {
     width: 50,
@@ -293,41 +293,41 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.xs,
     borderWidth: 2,
-    borderColor: '#7E57C2',
+    borderColor: COLORS.border,
   },
   podiumAvatarCenter: {
     width: 66,
     height: 66,
     borderRadius: 33,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
   podiumAvatarText: {
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: 'bold',
   },
   podiumAvatarTextCenter: {
-    fontSize: 20,
+    ...TYPOGRAPHY.large,
   },
   podiumName: {
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.bodyMuted,
     fontWeight: 'bold',
-    fontSize: 14,
+    color: COLORS.text,
     marginBottom: 2,
   },
   podiumPoints: {
-    color: '#D1C4E9',
-    fontSize: 12,
-    marginBottom: 8,
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
+    marginBottom: SPACING.xs,
   },
   podiumBase: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    backgroundColor: COLORS.overlayLight,
+    borderTopLeftRadius: RADIUS.sm,
+    borderTopRightRadius: RADIUS.sm,
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: SPACING.sm,
   },
   podiumBaseCenter: {
     height: 70,
@@ -340,26 +340,26 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    marginTop: -20,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    backgroundColor: COLORS.backgroundSecondary,
+    marginTop: -SPACING.lg,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
   },
   flatListContent: {
-    paddingTop: 30,
-    paddingHorizontal: 20,
+    paddingTop: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
     paddingBottom: 100,
   },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: SPACING.xl,
   },
   listRank: {
     width: 30,
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: 'bold',
-    color: '#9E9E9E',
+    color: COLORS.muted,
     textAlign: 'center',
   },
   listAvatar: {
@@ -368,10 +368,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 15,
+    marginHorizontal: SPACING.md,
   },
   listAvatarText: {
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: 'bold',
   },
   listInfo: {
@@ -383,36 +383,34 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   listName: {
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: '600',
-    color: '#212121',
+    color: COLORS.text,
   },
   listNameActive: {
-    color: '#6200EE',
+    color: COLORS.secondary,
   },
   youBadge: {
-    backgroundColor: '#6200EE',
-    paddingHorizontal: 6,
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: SPACING.xs,
     paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 8,
+    borderRadius: RADIUS.sm,
+    marginLeft: SPACING.xs,
   },
   youBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.badge,
+    color: COLORS.white,
     textTransform: 'uppercase',
   },
   listSubtext: {
-    color: '#9E9E9E',
-    fontSize: 13,
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
   },
   listPoints: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#6200EE',
+    ...TYPOGRAPHY.cardTitle,
+    color: COLORS.secondary,
   },
   listPointsActive: {
-    color: '#6200EE',
+    color: COLORS.secondary,
   },
 });

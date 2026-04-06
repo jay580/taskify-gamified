@@ -59,18 +59,26 @@ export default function AdminTabs() {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 0,
-    elevation: 0,
+    bottom: 20,
+    left: 20,
+    right: 20,
     backgroundColor: COLORS.surface,
     height: 70,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    paddingBottom: 10,
-    paddingTop: 10,
+    borderRadius: 24,
+    borderTopWidth: 0,
+    paddingBottom: 12,
+    paddingTop: 12,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
   },
   tabBarLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '800',
     marginTop: -5,
   },
 });

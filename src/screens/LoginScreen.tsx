@@ -10,16 +10,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
 import { sendPasswordReset } from '../services/auth';
-
-type RootStackParamList = {
-  AdminRoot: undefined;
-  StudentRoot: undefined;
-};
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -27,7 +20,6 @@ export default function LoginScreen() {
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { login } = useAuth();
 
   const handleEmailLogin = async () => {
@@ -38,13 +30,8 @@ export default function LoginScreen() {
     
     setLoading(true);
     try {
-      const { role } = await login(email, password);
-      console.log('Login success. Role:', role);
-      if (role === 'admin') {
-        navigation.replace('AdminRoot');
-      } else {
-        navigation.replace('StudentRoot');
-      }
+      await login(email, password);
+      // Navigation is handled automatically by RootNavigator when auth state changes
     } catch (err: any) {
       let message = 'Login failed. Please try again.';
       if (err.code === 'auth/user-not-found') message = 'No account found with this email.';
@@ -97,7 +84,9 @@ export default function LoginScreen() {
               style={styles.input}
               outlineColor={COLORS.divider}
               activeOutlineColor={COLORS.link}
-              left={<TextInput.Icon icon="email-outline" />}
+              textColor={COLORS.text}
+              theme={{ colors: { onSurfaceVariant: COLORS.muted } }}
+              left={<TextInput.Icon icon="email-outline" color={COLORS.muted} />}
               disabled={loading}
             />
 
@@ -110,10 +99,13 @@ export default function LoginScreen() {
               style={styles.input}
               outlineColor={COLORS.divider}
               activeOutlineColor={COLORS.link}
-              left={<TextInput.Icon icon="lock-outline" />}
+              textColor={COLORS.text}
+              theme={{ colors: { onSurfaceVariant: COLORS.muted } }}
+              left={<TextInput.Icon icon="lock-outline" color={COLORS.muted} />}
               right={
                 <TextInput.Icon
                   icon={secureTextEntry ? 'eye-off' : 'eye'}
+                  color={COLORS.muted}
                   onPress={() => setSecureTextEntry(!secureTextEntry)}
                   forceTextInputFocus={false}
                 />

@@ -14,23 +14,24 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { getStudentSubmissions } from '../../services/firestore';
 import type { Submission } from '../../types';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
 
 const getCategoryIcon = (cat: string) => {
   switch (cat) {
-    case 'Academic': return { icon: 'book-outline', color: '#1976D2' };
-    case 'Domestic': return { icon: 'broom', color: '#388E3C' };
-    case 'Sports':   return { icon: 'run', color: '#F57C00' };
-    case 'Special':  return { icon: 'star-outline', color: '#6200EE' };
-    default:         return { icon: 'check-circle-outline', color: '#388E3C' };
+    case 'Academic': return { icon: 'book-outline', color: COLORS.link };
+    case 'Domestic': return { icon: 'broom', color: COLORS.success };
+    case 'Sports':   return { icon: 'run', color: COLORS.warning };
+    case 'Special':  return { icon: 'star-outline', color: COLORS.secondary };
+    default:         return { icon: 'check-circle-outline', color: COLORS.success };
   }
 };
 
 const getStatusInfo = (status: string) => {
   switch (status) {
-    case 'approved': return { label: 'Approved', color: '#4CAF50' };
-    case 'rejected': return { label: 'Rejected', color: '#F44336' };
-    case 'pending':  return { label: 'Pending',  color: '#FFA000' };
-    default:         return { label: status, color: '#757575' };
+    case 'approved': return { label: 'Approved', color: COLORS.success };
+    case 'rejected': return { label: 'Rejected', color: COLORS.error };
+    case 'pending':  return { label: 'Pending',  color: COLORS.warning };
+    default:         return { label: status, color: COLORS.muted };
   }
 };
 
@@ -121,7 +122,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#6200EE" />
+        <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
   }
@@ -143,7 +144,7 @@ export default function ProfileScreen() {
           <View style={styles.topNavRow}>
             <Text style={styles.headerTitle}>Profile</Text>
             <TouchableOpacity onPress={handleSettings} style={styles.settingsIcon}>
-              <MaterialCommunityIcons name="cog-outline" size={28} color="#FFFFFF" />
+              <MaterialCommunityIcons name="cog-outline" size={28} color={COLORS.text} />
             </TouchableOpacity>
           </View>
 
@@ -157,7 +158,7 @@ export default function ProfileScreen() {
             <Text style={styles.userEmail}>{studentId}</Text>
 
             <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-              <MaterialCommunityIcons name="pencil-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <MaterialCommunityIcons name="pencil-outline" size={16} color={COLORS.text} style={{ marginRight: 6 }} />
               <Text style={styles.editProfileText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
@@ -180,7 +181,7 @@ export default function ProfileScreen() {
       <View style={styles.historyContainer}>
         <View style={styles.historyHeader}>
           <Text style={styles.historyTitle}>Past Tasks</Text>
-          <MaterialCommunityIcons name="history" size={22} color="#212121" />
+          <MaterialCommunityIcons name="history" size={22} color={COLORS.text} />
         </View>
         <FlatList
           data={pastTasks}
@@ -189,11 +190,11 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6200EE']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
           }
           ListEmptyComponent={
-            <View style={{ padding: 30, alignItems: 'center' }}>
-              <Text style={{ color: '#757575', fontSize: 15 }}>No past tasks yet</Text>
+            <View style={{ padding: SPACING.xl, alignItems: 'center' }}>
+              <Text style={{ color: COLORS.muted, ...TYPOGRAPHY.body }}>No past tasks yet</Text>
             </View>
           }
         />
@@ -205,99 +206,95 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: COLORS.backgroundPrimary,
   },
   headerBackground: {
-    backgroundColor: '#5E35B1',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingHorizontal: 20,
-    paddingBottom: 25,
+    backgroundColor: COLORS.surface,
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xl,
   },
   topNavRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
-    marginTop: 10,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.sm,
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.header,
+    color: COLORS.text,
   },
   settingsIcon: {
     padding: 4,
   },
   identitySection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   avatarWrapper: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: SPACING.sm,
   },
   avatarCircle: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: '#FFB300',
+    backgroundColor: COLORS.gold,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#9575CD',
+    borderColor: COLORS.border,
   },
   avatarInitials: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.hero,
+    color: COLORS.white,
   },
   levelBadge: {
     position: 'absolute',
     bottom: 0,
     right: -10,
-    backgroundColor: '#FF5252',
-    paddingHorizontal: 10,
+    backgroundColor: COLORS.error,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: RADIUS.sm,
     borderWidth: 2,
-    borderColor: '#5E35B1',
+    borderColor: COLORS.surface,
   },
   levelBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.badge,
+    color: COLORS.white,
   },
   userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.sectionTitle,
+    color: COLORS.text,
     marginBottom: 4,
   },
   userEmail: {
-    fontSize: 14,
-    color: '#D1C4E9',
-    marginBottom: 15,
+    ...TYPOGRAPHY.bodyMuted,
+    color: COLORS.muted,
+    marginBottom: SPACING.md,
   },
   editProfileButton: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    backgroundColor: COLORS.overlayLight,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
   },
   editProfileText: {
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.bodyMuted,
     fontWeight: '600',
-    fontSize: 14,
+    color: COLORS.text,
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    borderRadius: 15,
-    paddingVertical: 12,
-    marginHorizontal: 10,
+    backgroundColor: COLORS.overlayDark,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    marginHorizontal: SPACING.sm,
     alignItems: 'center',
   },
   statBox: {
@@ -307,84 +304,78 @@ const styles = StyleSheet.create({
   verticalDivider: {
     width: 1,
     height: 30,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: COLORS.overlayLight,
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    ...TYPOGRAPHY.large,
+    color: COLORS.text,
     marginBottom: 2,
   },
   statLabelText: {
-    fontSize: 12,
-    color: '#D1C4E9',
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
   },
   historyContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-    marginTop: 20,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.lg,
   },
   historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   historyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#212121',
+    ...TYPOGRAPHY.large,
+    color: COLORS.text,
   },
   listContent: {
     paddingBottom: 100,
   },
   taskCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 16,
-    marginBottom: 15,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    ...SHADOWS.card,
   },
   taskIconBox: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#F3E5F5',
+    backgroundColor: COLORS.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
   taskInfo: {
     flex: 1,
   },
   taskTitle: {
-    fontSize: 15,
+    ...TYPOGRAPHY.body,
     fontWeight: '600',
-    color: '#212121',
+    color: COLORS.text,
     marginBottom: 4,
   },
   taskMeta: {
-    fontSize: 12,
-    color: '#757575',
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
   },
   taskResultBox: {
     alignItems: 'flex-end',
-    marginLeft: 10,
+    marginLeft: SPACING.sm,
   },
   pointsPlus: {
-    color: '#6200EE',
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
     fontWeight: 'bold',
+    color: COLORS.secondary,
     marginBottom: 2,
   },
   statusLabel: {
-    fontSize: 12,
+    ...TYPOGRAPHY.small,
     fontWeight: '600',
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -7,21 +7,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/Student/Home';
 import QuestsStack from './QuestsStack';
 import LeaderboardScreen from '../screens/Student/Leaderboard';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS } from '../theme';
 import Profile from '@/screens/Student/Profile';
 
 const Tab = createBottomTabNavigator();
-
-const CustomTabBarButton = ({ children, onPress }: any) => (
-  <TouchableOpacity
-    style={styles.customButtonContainer}
-    onPress={() => Alert.alert('Add Action', 'This will probably open a modal to add a quick task or an action menu.')}
-  >
-    <View style={styles.customButton}>
-      {children}
-    </View>
-  </TouchableOpacity>
-);
 
 export default function StudentTabs() {
   return (
@@ -30,7 +19,7 @@ export default function StudentTabs() {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarActiveTintColor: COLORS.secondary,
         tabBarInactiveTintColor: COLORS.inactive,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
@@ -55,28 +44,6 @@ export default function StudentTabs() {
           ),
         }}
       />
-
-      {/* Spacer/Action Tab */}
-      <Tab.Screen
-        name="AddAction"
-        component={View} // Dummy component since button is handled custom
-        options={{
-          tabBarLabel: '',
-          // Use a custom button component for the center '+' action
-          tabBarButton: (props) => (
-            <CustomTabBarButton {...props}>
-              <MaterialCommunityIcons name="plus" size={32} color={COLORS.white} />
-            </CustomTabBarButton>
-          ),
-        }}
-        listeners={{
-          tabPress: e => {
-            // Prevent default navigation
-            e.preventDefault();
-          },
-        }}
-      />
-
       <Tab.Screen
         name="Rank"
         component={LeaderboardScreen}
@@ -117,23 +84,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: -5,
-  },
-  customButtonContainer: {
-    top: -25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  customButton: {
-    width: 65,
-    height: 65,
-    borderRadius: 35,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

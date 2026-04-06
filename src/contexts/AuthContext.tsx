@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { onAuthStateChanged, loginWithEmail, logout as authLogout } from '../services/auth';
 import { getUserProfile, createDefaultUserProfile } from '../services/firestore';
@@ -28,12 +28,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Track if we just logged in to avoid double profile fetch
+  const justLoggedIn = useRef(false);
 
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(async (user) => {
       setFirebaseUser(user);
+      
       if (user) {
+        // Skip profile fetch if we just logged in (profile already set)
+        if (justLoggedIn.current) {
+          justLoggedIn.current = false;
+          setLoading(false);
+          return;
+        }
+        
         try {
           let profile = await getUserProfile(user.uid);
           // Auto-create profile if missing (for manually created Firebase Auth users)
@@ -68,7 +79,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cred.user.displayName || undefined
       );
     }
+    
+    // Mark that we just logged in so onAuthStateChanged skips the fetch
+    justLoggedIn.current = true;
+    setFirebaseUser(cred.user);
     setUserProfile(profile);
+    
     return { role: profile.role };
   };
 
