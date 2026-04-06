@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/theme';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/theme';
 
 export default function Badge({ label, backgroundColor = COLORS.accent, textColor = COLORS.black }: any) {
   return (
@@ -15,7 +15,7 @@ export default function Badge({ label, backgroundColor = COLORS.accent, textColo
         elevation: 2,
       }}
     >
-      <Text style={{ ...TYPOGRAPHY.small, color: textColor }}>
+      <Text style={[TYPOGRAPHY.small, { color: textColor }]}>
         {label}
       </Text>
     </View>

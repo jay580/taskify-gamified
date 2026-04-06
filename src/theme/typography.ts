@@ -1,4 +1,6 @@
-export const TYPOGRAPHY = {
+import { StyleSheet } from "react-native";
+
+export const TYPOGRAPHY = StyleSheet.create({
   header: {
     fontSize: 26,
     fontWeight: "700",
@@ -44,4 +46,4 @@ export const TYPOGRAPHY = {
     fontWeight: "600",
     letterSpacing: 0.1,
   },
-};
+});
