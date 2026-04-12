@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,19 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeaderboard } from '../../services/firestore';
+import { observeTeamLeaderboard, TeamSchema } from '../../services/teams';
 import type { LeaderboardEntry } from '../../types';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
+import FadeInView from '../../components/FadeInView';
 
-const TABS = ['This month'];
+const TABS = ['This month', 'Teams'];
 
 // Assign colors to top 3 + rest
 const PODIUM_STYLES = [
@@ -27,12 +31,45 @@ const PODIUM_STYLES = [
 const AVATAR_COLORS = [COLORS.surface, COLORS.surface, COLORS.surface, COLORS.surface, COLORS.surface];
 const AVATAR_TEXT_COLORS = [COLORS.link, COLORS.success, COLORS.warning, COLORS.secondary, COLORS.muted];
 
+function TeamPodium({ teams }: { teams: TeamSchema[] }) {
+  const topTeams = teams.slice(0, 3);
+  if (!topTeams.length) return null;
+
+  const ranked = topTeams.map((team, index) => ({ ...team, rank: index + 1 }));
+  const ordered = ranked.length >= 3 ? [ranked[1], ranked[0], ranked[2]] : ranked;
+
+  return (
+    <View style={styles.teamPodiumContainer}>
+      {ordered.map((team) => (
+        <View
+          key={team.id}
+          style={[
+            styles.teamPodiumItem,
+            team.rank === 1 ? styles.teamPodiumCenter : null,
+          ]}
+        >
+          <Text style={styles.teamPodiumRank}>#{team.rank}</Text>
+          <Text style={styles.teamPodiumName}>{team.name}</Text>
+          <Text style={styles.teamPodiumPoints}>{team.totalPoints} pts</Text>
+          <View
+            style={[
+              styles.teamPodiumBase,
+              team.rank === 1 ? styles.teamPodiumBaseCenter : styles.teamPodiumBaseSide,
+            ]}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function LeaderboardScreen() {
   const { userProfile } = useAuth();
   const uid = userProfile?.uid ?? '';
 
   const [activeTab, setActiveTab] = useState('This month');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [teams, setTeams] = useState<TeamSchema[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,6 +87,8 @@ export default function LeaderboardScreen() {
   useEffect(() => {
     setLoading(true);
     loadData();
+    const unsubTeams = observeTeamLeaderboard(setTeams);
+    return () => unsubTeams();
   }, [loadData]);
 
   const onRefresh = useCallback(async () => {
@@ -112,31 +151,51 @@ export default function LeaderboardScreen() {
     const colorIdx = (item.rank - 1) % AVATAR_COLORS.length;
 
     return (
-      <View style={styles.listRow}>
-        <Text style={styles.listRank}>{item.rank}</Text>
+      <FadeInView delay={item.rank * 80}>
+        <View style={styles.listRow}>
+          <Text style={styles.listRank}>{item.rank}</Text>
 
-        <View style={[styles.listAvatar, { backgroundColor: AVATAR_COLORS[colorIdx] }]}>
-          <Text style={[styles.listAvatarText, { color: AVATAR_TEXT_COLORS[colorIdx] }]}>
-            {item.initials}
-          </Text>
-        </View>
-
-        <View style={styles.listInfo}>
-          <View style={styles.listNameRow}>
-            <Text style={[styles.listName, isMe && styles.listNameActive]}>{item.name}</Text>
-            {isMe && (
-              <View style={styles.youBadge}>
-                <Text style={styles.youBadgeText}>you</Text>
-              </View>
-            )}
+          <View style={[styles.listAvatar, { backgroundColor: AVATAR_COLORS[colorIdx] }]}>
+            <Text style={[styles.listAvatarText, { color: AVATAR_TEXT_COLORS[colorIdx] }]}>
+              {item.initials}
+            </Text>
           </View>
-          <Text style={styles.listSubtext}>
-            {item.room ? `${item.room} • ` : ''}{item.totalTasksDone} tasks
-          </Text>
-        </View>
 
-        <Text style={[styles.listPoints, isMe && styles.listPointsActive]}>{item.points}</Text>
-      </View>
+          <View style={styles.listInfo}>
+            <View style={styles.listNameRow}>
+              <Text style={[styles.listName, isMe && styles.listNameActive]}>{item.name}</Text>
+              {isMe && (
+                <View style={styles.youBadge}>
+                  <Text style={styles.youBadgeText}>you</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.listSubtext}>
+              {item.teamName ? `${item.teamName} • ` : ''}{item.totalTasksDone} tasks
+            </Text>
+          </View>
+
+          <Text style={[styles.listPoints, isMe && styles.listPointsActive]}>{item.points}</Text>
+        </View>
+      </FadeInView>
+    );
+  };
+
+  const renderTeamItem = ({ item, index }: { item: TeamSchema; index: number }) => {
+    const medals = ['🥇', '🥈', '🥉'];
+    const medalIcon = medals[index] || '•';
+    
+    return (
+      <FadeInView delay={(index + 1) * 80}>
+        <View style={styles.teamRow}>
+          <Text style={styles.teamMedal}>{medalIcon}</Text>
+          <View style={styles.teamInfo}>
+            <Text style={styles.teamName}>{item.name}</Text>
+            <Text style={styles.teamMembersCount}>{item.members.length} members</Text>
+          </View>
+          <Text style={styles.teamPoints}>+{item.totalPoints}</Text>
+        </View>
+      </FadeInView>
     );
   };
 
@@ -178,29 +237,45 @@ export default function LeaderboardScreen() {
             })}
           </View>
 
-          {/* Podium */}
-          {podiumOrder.length > 0 && (
-            <View style={styles.podiumContainer}>
-              {podiumOrder.map((item, idx) =>
-                renderPodiumItem(item, idx === 1) // center item is the 1st place
-              )}
-            </View>
+          {activeTab === 'This month' ? (
+            podiumOrder.length > 0 ? (
+              <View style={styles.podiumContainer}>
+                {podiumOrder.map((item, idx) =>
+                  renderPodiumItem(item, idx === 1)
+                )}
+              </View>
+            ) : null
+          ) : (
+            <TeamPodium teams={teams} />
           )}
         </SafeAreaView>
       </View>
 
       {/* LIST SECTION */}
       <View style={styles.listContainer}>
-        <FlatList
-          data={entries}
-          keyExtractor={(item) => item.uid}
-          renderItem={renderListItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.flatListContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
-          }
-        />
+        {activeTab === 'This month' ? (
+          <FlatList
+            data={entries}
+            keyExtractor={(item, index) => item.uid || index.toString()}
+            renderItem={renderListItem}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.flatListContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
+            }
+          />
+        ) : (
+          <FlatList
+            data={teams}
+            keyExtractor={(item, index) => item.id || index.toString()}
+            renderItem={renderTeamItem}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.flatListContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
+            }
+          />
+        )}
       </View>
     </View>
   );
@@ -412,5 +487,73 @@ const styles = StyleSheet.create({
   },
   listPointsActive: {
     color: COLORS.secondary,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+  },
+  teamMedal: {
+    fontSize: 24,
+    marginRight: SPACING.md,
+  },
+  teamInfo: {
+    flex: 1,
+  },
+  teamName: {
+    ...TYPOGRAPHY.body,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  teamMembersCount: {
+    ...TYPOGRAPHY.small,
+    color: COLORS.muted,
+  },
+  teamPoints: {
+    ...TYPOGRAPHY.cardTitle,
+    color: COLORS.success,
+  },
+  teamPodiumContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    height: 170,
+  },
+  teamPodiumItem: {
+    alignItems: 'center',
+    width: 92,
+    marginHorizontal: SPACING.sm,
+  },
+  teamPodiumCenter: {
+    marginBottom: SPACING.sm,
+  },
+  teamPodiumRank: {
+    ...TYPOGRAPHY.badge,
+    color: COLORS.accent,
+    marginBottom: 4,
+  },
+  teamPodiumName: {
+    ...TYPOGRAPHY.body,
+    fontWeight: '700',
+    color: COLORS.text,
+    textAlign: 'center',
+  },
+  teamPodiumPoints: {
+    ...TYPOGRAPHY.small,
+    color: COLORS.success,
+    marginBottom: SPACING.xs,
+  },
+  teamPodiumBase: {
+    width: '100%',
+    backgroundColor: COLORS.overlayLight,
+    borderTopLeftRadius: RADIUS.sm,
+    borderTopRightRadius: RADIUS.sm,
+  },
+  teamPodiumBaseCenter: {
+    height: 72,
+  },
+  teamPodiumBaseSide: {
+    height: 50,
   },
 });

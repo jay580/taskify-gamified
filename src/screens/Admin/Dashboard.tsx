@@ -37,6 +37,7 @@ export default function DashboardScreen() {
   const [isRejecting, setIsRejecting] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [customPoints, setCustomPoints] = useState(10);
 
   useEffect(() => {
     let tasksReady = false;
@@ -55,7 +56,6 @@ export default function DashboardScreen() {
     const unsubSubs = observePendingSubmissions((s) => { setPendingSubmissions(s); subsReady = true; checkLoading(); });
     const unsubLead = observeLeaderboard((l) => { setLeaderboard(l); leadReady = true; checkLoading(); });
 
-    // Fetch latest announcement
     const fetchAnnouncement = async () => {
       try {
         const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(1));
@@ -84,6 +84,7 @@ export default function DashboardScreen() {
     setRejectReason('');
     setIsRejecting(false);
     setImageError(false);
+    setCustomPoints(sub.type === 'self' ? 10 : (sub.pointsAwarded || 10));
     setVerificationModalVisible(true);
   };
 
@@ -96,7 +97,7 @@ export default function DashboardScreen() {
     if (!selectedSubmission) return;
     setIsActionLoading(true);
     try {
-      const points = selectedSubmission.pointsAwarded || 10;
+      const points = selectedSubmission.type === 'self' ? customPoints : (selectedSubmission.pointsAwarded || 10);
       await approveSubmission(selectedSubmission, points);
       showToast(`🔥 +${points} points awarded`, 'success');
       handleCloseVerification();
@@ -209,7 +210,6 @@ export default function DashboardScreen() {
                   <Card 
                     style={[styles.submissionCard]} 
                     onPress={() => {
-                      console.log("Card clicked: ", sub.id);
                       handleOpenVerification(sub);
                     }}
                     activeOpacity={0.9}
@@ -224,7 +224,7 @@ export default function DashboardScreen() {
                           <Text style={styles.subTaskTitle}>{sub.title}</Text>
                         </View>
                       </View>
-                      <Badge label="Pending" backgroundColor={COLORS.warning} textColor={COLORS.white} />
+                      <Badge label={sub.type === 'self' ? 'Self Task' : 'Pending'} backgroundColor={sub.type === 'self' ? COLORS.link : COLORS.warning} textColor={COLORS.white} />
                     </View>
                     <View style={{ padding: SPACING.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                        <Text style={{color: COLORS.textSecondary, fontWeight: '600'}}>Tap to verify submission</Text>
@@ -248,7 +248,7 @@ export default function DashboardScreen() {
                        <View style={styles.leadInfo}>
                          <Text style={styles.leadName}>{student.name}</Text>
                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                           <Text style={styles.leadRoom}>Room {student.room}</Text>
+                           <Text style={styles.leadRoom}>{student.teamName ? `Team ${student.teamName}` : ''}</Text>
                            {student.streakDays > 1 && (
                               <View style={{flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(236, 201, 75, 0.1)', paddingHorizontal: 6, borderRadius: 8}}>
                                  <MaterialCommunityIcons name="fire" size={12} color={COLORS.accent} />
@@ -272,12 +272,17 @@ export default function DashboardScreen() {
       <Modal visible={verificationModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleCloseVerification}>
         {selectedSubmission && (() => {
            const studentInfo = students.find(s => s.uid === selectedSubmission.studentId || s.studentId === selectedSubmission.studentId);
+           const submissionImages = Array.isArray(selectedSubmission.photoUrls)
+             ? selectedSubmission.photoUrls.filter(Boolean)
+             : selectedSubmission.photoUrl
+               ? [selectedSubmission.photoUrl]
+               : [];
            return (
              <View style={styles.verifyModalContainer}>
                {/* Modal Header */}
                <View style={styles.verifyHeader}>
                  <View style={{flex: 1}}>
-                   <Badge label="Pending Review" backgroundColor={COLORS.warning} textColor={COLORS.white} style={{alignSelf: 'flex-start', marginBottom: 8}} />
+                   <Badge label={selectedSubmission.type === 'self' ? 'Self Task Review' : 'Pending Review'} backgroundColor={selectedSubmission.type === 'self' ? COLORS.link : COLORS.warning} textColor={COLORS.white} style={{alignSelf: 'flex-start', marginBottom: 8}} />
                    <Text style={styles.verifyTitle}>{selectedSubmission.title}</Text>
                  </View>
                  <TouchableOpacity onPress={handleCloseVerification} style={styles.verifyCloseBtn}>
@@ -295,7 +300,7 @@ export default function DashboardScreen() {
                    </View>
                    <View style={{flex: 1}}>
                      <Text style={styles.subStudentName}>{studentInfo?.name || selectedSubmission.studentId}</Text>
-                     <Text style={styles.subTaskTitle}>Room {studentInfo?.room || "Unknown"}</Text>
+                     <Text style={styles.subTaskTitle}>{studentInfo?.teamName ? `Team ${studentInfo.teamName}` : 'No Team'}</Text>
                    </View>
                    <View style={{alignItems: 'flex-end'}}>
                      <Text style={{color: COLORS.mutedText, fontSize: 12, fontWeight: 'bold'}}>ID</Text>
@@ -319,13 +324,17 @@ export default function DashboardScreen() {
 
                  {/* Photo Section */}
                  <Text style={styles.sectionTitle}>Proof of Work</Text>
-                 {selectedSubmission.photoUrl && !imageError ? (
-                    <TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedImage(selectedSubmission.photoUrl)} style={styles.verifyImageContainer}>
-                      <Image source={{ uri: selectedSubmission.photoUrl }} style={styles.subImage} onError={() => setImageError(true)} />
-                      <View style={styles.imageOverlay}>
-                        <MaterialCommunityIcons name="magnify-plus-outline" size={24} color="#FFF" />
-                      </View>
-                    </TouchableOpacity>
+                 {submissionImages.length > 0 && !imageError ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: SPACING.sm }}>
+                      {submissionImages.map((uri, idx) => (
+                        <TouchableOpacity key={`${uri}-${idx}`} activeOpacity={0.9} onPress={() => setSelectedImage(uri)} style={[styles.verifyImageContainer, { marginRight: SPACING.md, width: 220 }]}>
+                          <Image source={{ uri }} style={styles.subImage} onError={() => setImageError(true)} />
+                          <View style={styles.imageOverlay}>
+                            <MaterialCommunityIcons name="magnify-plus-outline" size={24} color="#FFF" />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
                  ) : (
                     <View style={styles.verifyEmptyState}>
                        <MaterialCommunityIcons name="camera-off" size={32} color={COLORS.border} />
@@ -344,6 +353,28 @@ export default function DashboardScreen() {
                    <View style={styles.verifyEmptyState}>
                       <MaterialCommunityIcons name="text-box-remove-outline" size={24} color={COLORS.border} />
                       <Text style={{color: COLORS.muted, marginTop: 4, fontWeight: 'bold'}}>No notes provided</Text>
+                   </View>
+                 )}
+
+                 {/* Custom Points for Self Tasks */}
+                 {selectedSubmission.type === 'self' && !isRejecting && (
+                   <View style={{marginTop: SPACING.md}}>
+                     <Text style={styles.sectionTitle}>Award Points</Text>
+                     <View style={{flexDirection: 'row', gap: 10, marginBottom: SPACING.md}}>
+                       {[5, 10, 15, 20].map((val) => (
+                         <TouchableOpacity
+                           key={val}
+                           style={{
+                             flex: 1, padding: 12, borderWidth: 1, borderColor: COLORS.border,
+                             borderRadius: RADIUS.md, alignItems: 'center' as const,
+                             backgroundColor: customPoints === val ? COLORS.accent : COLORS.surfaceAlt,
+                           }}
+                           onPress={() => setCustomPoints(val)}
+                         >
+                           <Text style={{color: customPoints === val ? COLORS.black : COLORS.textDark, fontWeight: '800', fontSize: 16}}>{val}</Text>
+                         </TouchableOpacity>
+                       ))}
+                     </View>
                    </View>
                  )}
 
@@ -397,378 +428,54 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.backgroundPrimary },
   content: { paddingBottom: SPACING.xl * 2, paddingTop: SPACING.sm },
   
-  heroCard: {
-    marginBottom: SPACING.xl,
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(236, 201, 75, 0.05)', // Subtle yellow glow
-  },
-  heroGreeting: {
-    fontSize: 14,
-    color: COLORS.mutedText,
-    marginBottom: SPACING.sm,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroHighlightText: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginBottom: 6,
-  },
-  announcementContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  heroSubText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    fontStyle: 'italic',
-  },
-  heroIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(236, 201, 75, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(236, 201, 75, 0.3)',
-  },
-
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xl,
-    gap: SPACING.md,
-  },
-  statCard: {
-    backgroundColor: COLORS.backgroundSecondary,
-    paddingVertical: SPACING.lg,
-    borderRadius: RADIUS.md,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.surfaceAlt,
-    shadowColor: COLORS.black,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.mutedText,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-
-  quickActions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.xl,
-  },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-  },
-  actionIconBg: {
-    padding: 8,
-    borderRadius: 12,
-  },
-  actionText: {
-    fontWeight: '800',
-    color: COLORS.textDark,
-    fontSize: 16,
-  },
-
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginBottom: SPACING.md,
-    letterSpacing: 0.5,
-  },
-  section: {
-    marginBottom: SPACING.lg,
-  },
-  
-  emptyState: {
-    padding: SPACING.xl * 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: RADIUS.lg,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    borderStyle: 'dashed',
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: SPACING.md,
-  },
-
-  submissionCard: {
-    padding: 0, 
-    overflow: 'hidden',
-  },
-  subHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.backgroundPrimary,
-    backgroundColor: COLORS.surfaceAlt,
-  },
-  subStudentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  avatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.border,
-  },
-  subStudentName: {
-    fontSize: 13,
-    color: COLORS.accent,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  subTaskTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textDark,
-  },
-
-  subDesc: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.md,
-    lineHeight: 22,
-  },
-  notesContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(236, 201, 75, 0.05)',
-    marginHorizontal: SPACING.lg,
-    padding: SPACING.md,
-    borderRadius: RADIUS.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.accent,
-    gap: 8,
-    marginBottom: SPACING.lg,
-  },
-  subNotes: {
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-    flex: 1,
-    fontWeight: '600',
-  },
-  imageContainer: {
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-  },
-  subImage: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#000',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 10,
-    borderRadius: 20,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: SPACING.lg,
-    padding: SPACING.lg,
-    paddingTop: 0,
-  },
-  
-  leaderboardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    gap: SPACING.md,
-  },
-  rankIcon: {
-    fontSize: 24,
-  },
-  leadInfo: {
-    flex: 1,
-  },
-  leadName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.textDark,
-  },
-  leadRoom: {
-    fontSize: 13,
-    color: COLORS.mutedText,
-    fontWeight: '600',
-  },
-  leadPoints: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.accent,
-  },
-  
-  modalBg: {
-    flex: 1,
-    backgroundColor: COLORS.overlayDark,
-    justifyContent: 'center',
-    padding: SPACING.lg,
-  },
-  modalCard: {
-    backgroundColor: COLORS.surfaceAlt,
-    padding: SPACING.xl,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  input: {
-    backgroundColor: COLORS.backgroundPrimary,
-    color: COLORS.textDark,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    paddingTop: SPACING.md,
-    minHeight: 120,
-    textAlignVertical: 'top',
-    marginBottom: SPACING.lg,
-    fontSize: 16,
-  },
-
-  verifyModalContainer: {
-    flex: 1,
-    backgroundColor: COLORS.backgroundPrimary,
-  },
-  verifyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.xl,
-    paddingBottom: SPACING.md,
-    backgroundColor: COLORS.surfaceAlt,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  verifyTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.textDark,
-  },
-  verifyCloseBtn: {
-    padding: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  verifyScroll: {
-    padding: SPACING.lg,
-    paddingBottom: 100,
-  },
-  verifyStudentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    marginBottom: SPACING.xl,
-    gap: SPACING.md,
-    backgroundColor: 'rgba(56, 161, 105, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 161, 105, 0.2)',
-  },
-  detailsCard: {
-    padding: SPACING.md,
-    marginBottom: SPACING.xl,
-    backgroundColor: COLORS.surface,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingBottom: SPACING.sm,
-    marginBottom: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.backgroundPrimary,
-  },
-  detailText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-  verifyImageContainer: {
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    marginBottom: SPACING.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  verifyEmptyState: {
-    padding: SPACING.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: COLORS.border,
-    marginBottom: SPACING.xl,
-  },
-  verifyFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0, right: 0,
-    backgroundColor: COLORS.surfaceAlt,
-    flexDirection: 'row',
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xl, // Safe area lift
-    gap: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  }
+  heroCard: { marginBottom: SPACING.xl },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(236, 201, 75, 0.05)' },
+  heroGreeting: { fontSize: 14, color: COLORS.mutedText, marginBottom: SPACING.sm, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
+  heroStatsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroHighlightText: { fontSize: 26, fontWeight: '800', color: COLORS.textDark, marginBottom: 6 },
+  announcementContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroSubText: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '600', fontStyle: 'italic' },
+  heroIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(236, 201, 75, 0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(236, 201, 75, 0.3)' },
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xl, gap: SPACING.md },
+  statCard: { backgroundColor: COLORS.backgroundSecondary, paddingVertical: SPACING.lg, borderRadius: RADIUS.md, flex: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.surfaceAlt, shadowColor: COLORS.black, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 6 },
+  statValue: { fontSize: 24, fontWeight: '800', color: COLORS.textDark, marginTop: 8 },
+  statLabel: { fontSize: 11, color: COLORS.mutedText, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
+  quickActions: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl },
+  actionBtn: { flex: 1, backgroundColor: COLORS.surface, padding: SPACING.md, borderRadius: RADIUS.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, gap: 12 },
+  actionIconBg: { padding: 8, borderRadius: 12 },
+  actionText: { fontWeight: '800', color: COLORS.textDark, fontSize: 16 },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textDark, marginBottom: SPACING.md, letterSpacing: 0.5 },
+  section: { marginBottom: SPACING.lg },
+  emptyState: { padding: SPACING.xl * 2, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.backgroundSecondary, borderRadius: RADIUS.lg, borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed' },
+  emptyText: { color: COLORS.textSecondary, fontSize: 16, fontWeight: '800', marginTop: SPACING.md },
+  submissionCard: { padding: 0, overflow: 'hidden' },
+  subHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: SPACING.lg, borderBottomWidth: 1, borderBottomColor: COLORS.backgroundPrimary, backgroundColor: COLORS.surfaceAlt },
+  subStudentInfo: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  avatarPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.border },
+  subStudentName: { fontSize: 13, color: COLORS.accent, fontWeight: '800', textTransform: 'uppercase' },
+  subTaskTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textDark },
+  subDesc: { color: COLORS.textSecondary, fontSize: 15, padding: SPACING.lg, paddingBottom: SPACING.md, lineHeight: 22 },
+  notesContainer: { flexDirection: 'row', backgroundColor: 'rgba(236, 201, 75, 0.05)', marginHorizontal: SPACING.lg, padding: SPACING.md, borderRadius: RADIUS.sm, borderLeftWidth: 3, borderLeftColor: COLORS.accent, gap: 8, marginBottom: SPACING.lg },
+  subNotes: { color: COLORS.textSecondary, fontStyle: 'italic', flex: 1, fontWeight: '600' },
+  subImage: { width: '100%', height: 200, backgroundColor: '#000' },
+  imageOverlay: { position: 'absolute', right: 12, bottom: 12, backgroundColor: 'rgba(0,0,0,0.7)', padding: 10, borderRadius: 20 },
+  leaderboardRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.lg, backgroundColor: COLORS.surface, gap: SPACING.md },
+  rankIcon: { fontSize: 24 },
+  leadInfo: { flex: 1 },
+  leadName: { fontSize: 16, fontWeight: '800', color: COLORS.textDark },
+  leadRoom: { fontSize: 13, color: COLORS.mutedText, fontWeight: '600' },
+  leadPoints: { fontSize: 18, fontWeight: '800', color: COLORS.accent },
+  input: { backgroundColor: COLORS.backgroundPrimary, color: COLORS.textDark, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, padding: SPACING.md, paddingTop: SPACING.md, minHeight: 120, textAlignVertical: 'top', marginBottom: SPACING.lg, fontSize: 16 },
+  verifyModalContainer: { flex: 1, backgroundColor: COLORS.backgroundPrimary },
+  verifyHeader: { flexDirection: 'row', alignItems: 'center', padding: SPACING.xl, paddingBottom: SPACING.md, backgroundColor: COLORS.surfaceAlt, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  verifyTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textDark },
+  verifyCloseBtn: { padding: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border },
+  verifyScroll: { padding: SPACING.lg, paddingBottom: 100 },
+  verifyStudentCard: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, marginBottom: SPACING.xl, gap: SPACING.md, backgroundColor: 'rgba(56, 161, 105, 0.05)', borderWidth: 1, borderColor: 'rgba(56, 161, 105, 0.2)' },
+  detailsCard: { padding: SPACING.md, marginBottom: SPACING.xl, backgroundColor: COLORS.surface },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: SPACING.sm, marginBottom: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.backgroundPrimary },
+  detailText: { color: COLORS.textSecondary, fontSize: 14 },
+  verifyImageContainer: { borderRadius: RADIUS.lg, overflow: 'hidden', marginBottom: SPACING.xl, borderWidth: 1, borderColor: COLORS.border },
+  verifyEmptyState: { padding: SPACING.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceAlt, borderRadius: RADIUS.md, borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.border, marginBottom: SPACING.xl },
+  verifyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.surfaceAlt, flexDirection: 'row', padding: SPACING.lg, paddingBottom: SPACING.xl, gap: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 10 },
 });

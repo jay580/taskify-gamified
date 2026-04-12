@@ -1,381 +1,418 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
-  FlatList,
+  TextInput,
   Alert,
-  ActivityIndicator,
-  RefreshControl,
+  Animated,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { getStudentSubmissions } from '../../services/firestore';
-import type { Submission } from '../../types';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
-
-const getCategoryIcon = (cat: string) => {
-  switch (cat) {
-    case 'Academic': return { icon: 'book-outline', color: COLORS.link };
-    case 'Domestic': return { icon: 'broom', color: COLORS.success };
-    case 'Sports':   return { icon: 'run', color: COLORS.warning };
-    case 'Special':  return { icon: 'star-outline', color: COLORS.secondary };
-    default:         return { icon: 'check-circle-outline', color: COLORS.success };
-  }
-};
-
-const getStatusInfo = (status: string) => {
-  switch (status) {
-    case 'approved': return { label: 'Approved', color: COLORS.success };
-    case 'rejected': return { label: 'Rejected', color: COLORS.error };
-    case 'pending':  return { label: 'Pending',  color: COLORS.warning };
-    default:         return { label: status, color: COLORS.muted };
-  }
-};
-
-const formatDate = (iso: string) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
+import { useUser } from '../../hooks/useUser';
+import { useToast } from '../../contexts/ToastContext';
+import { Avatar } from '../../components/Avatar';
+import Card from '../../components/Card';
+import Button from '../../components/Button';
+import FadeInView from '../../components/FadeInView';
+import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../theme';
+import { changePassword, sendPasswordReset, logout } from '../../services/auth';
+import * as ImagePicker from 'expo-image-picker';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { updateDoc, doc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 
 export default function ProfileScreen() {
-  const { userProfile, logout, refreshProfile } = useAuth();
-  const uid = userProfile?.uid ?? '';
+  const { userProfile } = useAuth();
+  const user = useUser();
+  const { showToast } = useToast();
 
-  const [pastTasks, setPastTasks] = useState<Submission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!uid) return;
+  // Animations
+  const avatarScale = useRef(new Animated.Value(1)).current;
+
+  const handleAvatarPressIn = () => {
+    Animated.spring(avatarScale, {
+      toValue: 0.95,
+      tension: 120,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleAvatarPressOut = () => {
+    Animated.spring(avatarScale, {
+      toValue: 1,
+      tension: 120,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const uploadImage = async (uri: string) => {
+    if (!user?.uid) return;
     try {
-      const subs = await getStudentSubmissions(uid);
-      setPastTasks(subs);
-    } catch (err) {
-      console.error('Error loading profile data:', err);
+      setUploading(true);
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const storage = getStorage();
+      const imageRef = ref(storage, `profiles/${user.uid}_${Date.now()}.jpg`);
+      await uploadBytes(imageRef, blob, { contentType: 'image/jpeg' });
+      const downloadURL = await getDownloadURL(imageRef);
+      await updateDoc(doc(db, 'users', user.uid), { profileImage: downloadURL || null });
+      showToast("✅ Profile image updated!", "success");
+    } catch (e: any) {
+      console.error('Upload error:', e);
+      showToast("❌ Upload failed", "error");
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
-  }, [uid]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([loadData(), refreshProfile()]);
-    setRefreshing(false);
-  }, [loadData, refreshProfile]);
-
-  const handleEditProfile = () => {
-    Alert.alert('Edit Profile', 'Edit profile feature coming soon!');
   };
 
-  const handleSettings = () => {
-    Alert.alert(
-      'Settings',
-      'Manage your account',
-      [
-        {
-          text: 'Logout',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (err) {
-              Alert.alert('Error', 'Could not log out. Try again.');
-            }
-          },
-          style: 'destructive',
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.5,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      uploadImage(result.assets[0].uri);
+    }
   };
 
-  const renderPastTaskItem = ({ item }: { item: Submission }) => {
-    const { icon, color: iconColor } = getCategoryIcon('Domestic'); // Default to domestic for now
-    const { label, color: statusColor } = getStatusInfo(item.status);
-
-    return (
-      <View style={styles.taskCard}>
-        <View style={styles.taskIconBox}>
-          <MaterialCommunityIcons name={icon as any} size={24} color={iconColor} />
-        </View>
-        <View style={styles.taskInfo}>
-          <Text style={styles.taskTitle}>{item.title}</Text>
-          <Text style={styles.taskMeta}>
-            {item.type === 'self' ? 'Self-created' : 'Task'}  •  {formatDate(item.submittedAt)}
-          </Text>
-        </View>
-        <View style={styles.taskResultBox}>
-          <Text style={styles.pointsPlus}>+{item.pointsAwarded}</Text>
-          <Text style={[styles.statusLabel, { color: statusColor }]}>{label}</Text>
-        </View>
-      </View>
-    );
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      showToast("⚠️ Password must be at least 6 characters", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast("⚠️ Passwords don't match", "error");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await changePassword(newPassword);
+      showToast("✅ Password changed successfully!", "success");
+      setNewPassword('');
+      setConfirmPassword('');
+      setEditModalVisible(false);
+    } catch (e: any) {
+      if (e.code === 'auth/requires-recent-login') {
+        showToast("⚠️ Please log out and log in again before changing password", "error");
+      } else {
+        showToast(`❌ ${e.message}`, "error");
+      }
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.secondary} />
-      </View>
-    );
-  }
+  const handleForgotPassword = async () => {
+    const email = user?.email || userProfile?.email || '';
+    // Check if email is real (not @tq.app)
+    if (email.endsWith('@tq.app')) {
+      showToast("📧 Contact admin to reset password", "info");
+      return;
+    }
+    try {
+      await sendPasswordReset(email);
+      showToast("📧 Password reset email sent!", "success");
+    } catch (e: any) {
+      showToast("📧 Contact admin to reset password", "info");
+    }
+  };
 
-  const name = userProfile?.name ?? 'Student';
-  const studentId = userProfile?.studentId ?? '';
-  const totalTasksDone = userProfile?.totalTasksDone ?? 0;
-  const pointsThisMonth = userProfile?.pointsThisMonth ?? 0;
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase();
+  const handleLogout = async () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logout();
+          } catch (error) {
+            console.error('Logout error:', error);
+          }
+        }
+      }
+    ]);
+  };
+
+  const displayUser = user || userProfile;
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBackground}>
-        <SafeAreaView edges={['top']}>
-          <View style={styles.topNavRow}>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <TouchableOpacity onPress={handleSettings} style={styles.settingsIcon}>
-              <MaterialCommunityIcons name="cog-outline" size={28} color={COLORS.text} />
-            </TouchableOpacity>
-          </View>
+      <SafeAreaView edges={['top']} style={styles.header}>
+        <Text style={styles.headerTitle}>Profile</Text>
+      </SafeAreaView>
 
-          <View style={styles.identitySection}>
-            <View style={styles.avatarWrapper}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarInitials}>{initials}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        
+        {/* Profile Card */}
+        <FadeInView delay={0}>
+          <View style={styles.profileSection}>
+            <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: avatarScale }] }]}>
+              <TouchableOpacity
+                onPress={pickImage}
+                onPressIn={handleAvatarPressIn}
+                onPressOut={handleAvatarPressOut}
+                activeOpacity={0.9}
+              >
+                <Avatar user={displayUser} size={90} />
+                <View style={styles.cameraIcon}>
+                  <MaterialCommunityIcons name="camera" size={14} color={COLORS.white} />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+            {uploading && <Text style={styles.uploadingText}>Uploading...</Text>}
+
+            <Text style={styles.userName}>{displayUser?.name || 'Student'}</Text>
+            
+            {displayUser?.teamName ? (
+              <View style={styles.teamBadge}>
+                <MaterialCommunityIcons name="shield-star" size={14} color={COLORS.accent} />
+                <Text style={styles.teamBadgeText}>Team {displayUser.teamName}</Text>
               </View>
-            </View>
-            <Text style={styles.userName}>{name}</Text>
-            <Text style={styles.userEmail}>{studentId}</Text>
+            ) : null}
+          </View>
+        </FadeInView>
 
-            <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-              <MaterialCommunityIcons name="pencil-outline" size={16} color={COLORS.text} style={{ marginRight: 6 }} />
-              <Text style={styles.editProfileText}>Edit Profile</Text>
+        {/* Stats Row */}
+        <FadeInView delay={100}>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{displayUser?.pointsThisMonth || 0}</Text>
+              <Text style={styles.statLabel}>Points</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{displayUser?.totalTasksDone || 0}</Text>
+              <Text style={styles.statLabel}>Tasks</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{displayUser?.streakDays || 0}</Text>
+              <Text style={styles.statLabel}>Streak</Text>
+            </View>
+          </View>
+        </FadeInView>
+
+        {/* Info Section */}
+        <FadeInView delay={200}>
+          <Card>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="email" size={20} color={COLORS.link} />
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{displayUser?.email || 'N/A'}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="card-account-details" size={20} color={COLORS.success} />
+              <Text style={styles.infoLabel}>Student ID</Text>
+              <Text style={styles.infoValue}>{displayUser?.studentId || 'N/A'}</Text>
+            </View>
+            {displayUser?.dateOfBirth ? (
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="cake-variant" size={20} color={COLORS.warning} />
+                <Text style={styles.infoLabel}>DOB</Text>
+                <Text style={styles.infoValue}>{displayUser.dateOfBirth}</Text>
+              </View>
+            ) : null}
+          </Card>
+        </FadeInView>
+
+        {/* Account Actions */}
+        <FadeInView delay={300}>
+          <Card>
+            <TouchableOpacity style={styles.actionRow} onPress={() => setEditModalVisible(true)} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="lock-reset" size={22} color={COLORS.accent} />
+              <Text style={styles.actionText}>Change Password</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.muted} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionRow} onPress={handleForgotPassword} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="email-alert" size={22} color={COLORS.link} />
+              <Text style={styles.actionText}>Forgot Password</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.muted} />
+            </TouchableOpacity>
+          </Card>
+        </FadeInView>
+
+        {/* Logout */}
+        <FadeInView delay={400}>
+          <Button title="Sign Out" variant="danger" onPress={handleLogout} style={{ marginTop: SPACING.md }} />
+        </FadeInView>
+
+      </ScrollView>
+
+      {/* Change Password Modal */}
+      <Modal visible={editModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditModalVisible(false)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalCloseBtn}>
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.textDark} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{totalTasksDone}</Text>
-              <Text style={styles.statLabelText}>Tasks Done</Text>
-            </View>
-            <View style={styles.verticalDivider} />
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{pointsThisMonth}</Text>
-              <Text style={styles.statLabelText}>Points This Month</Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </View>
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <Text style={styles.modalLabel}>New Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter new password"
+              placeholderTextColor={COLORS.muted}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
 
-      {/* Task History Section */}
-      <View style={styles.historyContainer}>
-        <View style={styles.historyHeader}>
-          <Text style={styles.historyTitle}>Past Tasks</Text>
-          <MaterialCommunityIcons name="history" size={22} color={COLORS.text} />
+            <Text style={styles.modalLabel}>Confirm Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Confirm new password"
+              placeholderTextColor={COLORS.muted}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+
+            <Button
+              title={changingPassword ? "Changing..." : "Change Password"}
+              onPress={handleChangePassword}
+              disabled={changingPassword}
+              style={{ marginTop: SPACING.lg }}
+            />
+          </ScrollView>
         </View>
-        <FlatList
-          data={pastTasks}
-          keyExtractor={(item) => item.id}
-          renderItem={renderPastTaskItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
-          }
-          ListEmptyComponent={
-            <View style={{ padding: SPACING.xl, alignItems: 'center' }}>
-              <Text style={{ color: COLORS.muted, ...TYPOGRAPHY.body }}>No past tasks yet</Text>
-            </View>
-          }
-        />
-      </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.backgroundPrimary,
-  },
-  headerBackground: {
-    backgroundColor: COLORS.surface,
-    borderBottomLeftRadius: RADIUS.xl,
-    borderBottomRightRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xl,
-  },
-  topNavRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-    marginTop: SPACING.sm,
-  },
-  headerTitle: {
-    ...TYPOGRAPHY.header,
-    color: COLORS.text,
-  },
-  settingsIcon: {
-    padding: 4,
-  },
-  identitySection: {
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
+  container: { flex: 1, backgroundColor: COLORS.backgroundPrimary },
+  header: { backgroundColor: COLORS.surface, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
+  headerTitle: { ...TYPOGRAPHY.hero, color: COLORS.text, marginTop: SPACING.sm },
+  content: { padding: SPACING.lg, paddingBottom: 100 },
+  
+  profileSection: { alignItems: 'center', marginBottom: SPACING.xl },
   avatarWrapper: {
-    position: 'relative',
-    marginBottom: SPACING.sm,
-  },
-  avatarCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: COLORS.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 50,
     borderWidth: 3,
-    borderColor: COLORS.border,
+    borderColor: COLORS.accent,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    marginBottom: SPACING.md,
   },
-  avatarInitials: {
-    ...TYPOGRAPHY.hero,
-    color: COLORS.white,
-  },
-  levelBadge: {
+  cameraIcon: {
     position: 'absolute',
     bottom: 0,
-    right: -10,
-    backgroundColor: COLORS.error,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.sm,
+    right: 0,
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 4,
     borderWidth: 2,
-    borderColor: COLORS.surface,
+    borderColor: COLORS.backgroundPrimary,
   },
-  levelBadgeText: {
-    ...TYPOGRAPHY.badge,
-    color: COLORS.white,
+  uploadingText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: SPACING.sm,
   },
   userName: {
-    ...TYPOGRAPHY.sectionTitle,
-    color: COLORS.text,
-    marginBottom: 4,
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.textDark,
+    marginBottom: SPACING.xs,
   },
-  userEmail: {
-    ...TYPOGRAPHY.bodyMuted,
-    color: COLORS.muted,
-    marginBottom: SPACING.md,
-  },
-  editProfileButton: {
+  teamBadge: {
     flexDirection: 'row',
-    backgroundColor: COLORS.overlayLight,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
     alignItems: 'center',
+    backgroundColor: 'rgba(236, 201, 75, 0.1)',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.lg,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(236, 201, 75, 0.3)',
   },
-  editProfileText: {
-    ...TYPOGRAPHY.bodyMuted,
-    fontWeight: '600',
-    color: COLORS.text,
+  teamBadgeText: {
+    color: COLORS.accent,
+    fontWeight: '800',
+    fontSize: 13,
   },
+
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: COLORS.overlayDark,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.sm,
-    marginHorizontal: SPACING.sm,
-    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  verticalDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: COLORS.overlayLight,
-  },
-  statNumber: {
-    ...TYPOGRAPHY.large,
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  statLabelText: {
-    ...TYPOGRAPHY.small,
-    color: COLORS.muted,
-  },
-  historyContainer: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-  },
-  historyHeader: {
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: '800', color: COLORS.textDark },
+  statLabel: { fontSize: 12, color: COLORS.mutedText, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 },
+  statDivider: { width: 1, backgroundColor: COLORS.border },
+
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    gap: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.backgroundPrimary,
+  },
+  infoLabel: { flex: 1, color: COLORS.mutedText, fontWeight: '700', fontSize: 13 },
+  infoValue: { color: COLORS.textDark, fontWeight: '600', fontSize: 14 },
+
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    gap: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.backgroundPrimary,
+  },
+  actionText: { flex: 1, color: COLORS.textDark, fontWeight: '700', fontSize: 15 },
+
+  // Modal
+  modalContainer: { flex: 1, backgroundColor: COLORS.backgroundPrimary },
+  modalHeader: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.md,
+    alignItems: 'center',
+    padding: SPACING.xl,
+    backgroundColor: COLORS.surfaceAlt,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  historyTitle: {
-    ...TYPOGRAPHY.large,
-    color: COLORS.text,
-  },
-  listContent: {
-    paddingBottom: 100,
-  },
-  taskCard: {
-    backgroundColor: COLORS.surface,
+  modalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textDark },
+  modalCloseBtn: { padding: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border },
+  modalContent: { padding: SPACING.xl },
+  modalLabel: { fontSize: 13, fontWeight: '800', color: COLORS.mutedText, textTransform: 'uppercase', marginBottom: SPACING.sm, marginTop: SPACING.md },
+  modalInput: {
+    backgroundColor: COLORS.surfaceAlt,
+    color: COLORS.textDark,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
-    marginBottom: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...SHADOWS.card,
-  },
-  taskIconBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: COLORS.surfaceAlt,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  taskInfo: {
-    flex: 1,
-  },
-  taskTitle: {
-    ...TYPOGRAPHY.body,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  taskMeta: {
-    ...TYPOGRAPHY.small,
-    color: COLORS.muted,
-  },
-  taskResultBox: {
-    alignItems: 'flex-end',
-    marginLeft: SPACING.sm,
-  },
-  pointsPlus: {
-    ...TYPOGRAPHY.body,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginBottom: 2,
-  },
-  statusLabel: {
-    ...TYPOGRAPHY.small,
-    fontWeight: '600',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    fontSize: 16,
   },
 });

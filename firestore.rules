@@ -11,38 +11,45 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
-    // Temporarily, we allow full read access to everyone for easy dev.
-    // In prod, restrict based on role.
-
     match /users/{userId} {
-      // Students can read all users (for leaderboard), but only update their own profile
       allow read: if isAuthenticated();
-      // Only admins can create or update roles. Let's keep write minimal for now.
-      allow write: if isOwner(userId); 
+      allow write: if isAuthenticated(); 
     }
 
     match /tasks/{taskId} {
-      // Any authenticated user can view tasks.
       allow read: if isAuthenticated();
-      // Only admins can create/update tasks
-      allow write: if request.auth.token.role == 'admin'; // Assuming custom claims or check user doc
+      allow write: if isAuthenticated();
     }
 
     match /submissions/{submissionId} {
-      // Students can read their own submissions. Students can create submissions for themselves.
       allow read: if isAuthenticated();
-      allow create: if isOwner(request.resource.data.studentId);
-      allow update, delete: if false; // Only admins can update status to approved/rejected
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+    }
+
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     match /rewards/{rewardId} {
       allow read: if isAuthenticated();
-      allow write: if false;
+      allow write: if isAuthenticated();
     }
 
     match /settings/{docId} {
       allow read: if isAuthenticated();
-      allow write: if false;
+      allow write: if isAuthenticated();
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /monthlyResults/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
   }
 }

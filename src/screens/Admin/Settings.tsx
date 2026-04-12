@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { getDocs, collection } from 'firebase/firestore';
 import { View, StyleSheet, ScrollView, TextInput, Alert, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { COLORS, SPACING, RADIUS, TYPOGRAPHY } from '../../theme';
@@ -10,7 +13,6 @@ import { setRewards, resetMonth } from '../../services/settings';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { logout } from '../../services/auth';
-import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useToast } from '../../contexts/ToastContext';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,9 +20,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { updateDoc } from 'firebase/firestore';
 import { useUser } from '../../hooks/useUser';
 import { Avatar } from '../../components/Avatar';
+import { Platform } from "react-native";
 
 export default function SettingsScreen() {
-  const navigation = useNavigation<any>();
   const { showToast } = useToast();
 
   const user = useUser();
@@ -35,11 +37,12 @@ export default function SettingsScreen() {
       try {
         const docRef = doc(db, 'settings', 'global');
         const snap = await getDoc(docRef);
-        if (snap.exists() && snap.data().rewards) {
-          const { firstPlace, secondPlace, thirdPlace } = snap.data().rewards;
-          setFirstPlace(firstPlace || '');
-          setSecondPlace(secondPlace || '');
-          setThirdPlace(thirdPlace || '');
+        if (snap.exists()) {
+          const data = snap.data();
+          const rewards = data?.rewards ?? {};
+          setFirstPlace(data?.reward1st ?? rewards.firstPlace ?? '');
+          setSecondPlace(data?.reward2nd ?? rewards.secondPlace ?? '');
+          setThirdPlace(data?.reward3rd ?? rewards.thirdPlace ?? '');
         }
       } catch (error) {
         console.error("Error loading settings: ", error);
@@ -57,7 +60,99 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleResetMonth = () => {
+  const handleExportCSV = async () => {
+    try {
+      console.log('CSV export started');
+      const snapshot = await getDocs(collection(db, 'monthlyResults'));
+      if (snapshot.empty) {
+        showToast('📥 No monthly results to export', 'info');
+        return;
+      }
+
+      const rows: Array<{ name: string; team: string; points: number; rank: number }> = [];
+      snapshot.forEach((doc) => {
+        const d = doc.data();
+        if (Array.isArray(d?.leaderboard)) {
+          d.leaderboard.forEach((entry: any, idx: number) => {
+            rows.push({
+              name: String(entry?.name ?? 'Unknown'),
+              team: String(entry?.teamName ?? entry?.team ?? ''),
+              points: Number(entry?.points ?? 0),
+              rank: Number(entry?.rank ?? idx + 1),
+            });
+          });
+        }
+      });
+
+      await exportMonthlyCSV(rows);
+      showToast('📥 Report exported!', 'success');
+    } catch (e: any) {
+      console.error('Export error:', e);
+      showToast(`❌ Export failed: ${e?.message || 'Unknown error'}`, 'error');
+    }
+  };
+
+const exportMonthlyCSV = async (data: Array<{ name: string; team: string; points: number; rank: number }>) => {
+  try {
+    console.log('Preparing CSV with rows:', data.length);
+
+    const header = 'Name,Team,Points,Rank\r\n';
+
+    const escapeCsv = (value: string | number) =>
+      `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+    const body = data
+      .map((row) => [
+        escapeCsv(row.name),
+        escapeCsv(row.team),
+        escapeCsv(row.points),
+        escapeCsv(row.rank),
+      ].join(','))
+      .join('\r\n');
+
+    const csv = `${header}${body}${body ? '\r\n' : ''}`;
+
+    if (Platform.OS === 'web') {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'monthly_results.csv';
+      link.click();
+
+      console.log('CSV downloaded on web');
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const fileUri =
+      FileSystem.documentDirectory
+        ? `${FileSystem.documentDirectory}monthly_results.csv`
+        : FileSystem.cacheDirectory
+        ? `${FileSystem.cacheDirectory}monthly_results.csv`
+        : null;
+
+    if (!fileUri) {
+      throw new Error('No valid file directory available');
+    }
+
+    console.log('Writing CSV to:', fileUri);
+    await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+
+    console.log('Opening share sheet for CSV');
+    await Sharing.shareAsync(fileUri, {
+      mimeType: 'text/csv',
+      dialogTitle: 'Export Monthly Results',
+      UTI: 'public.comma-separated-values-text',
+    });
+  } catch (error: any) {
+    console.error('exportMonthlyCSV failed:', error);
+    throw error;
+  }
+};
+
+const handleResetMonth = () => {
     Alert.alert(
       "End Month & Reset",
       "This will save the current leaderboard history and RESET all student points to 0. This cannot be undone.",
@@ -85,7 +180,6 @@ export default function SettingsScreen() {
       {text: "Sign Out", style: "destructive", onPress: async () => {
         try {
           await logout();
-          navigation.replace('Auth');
         } catch (error) {
           console.error("Failed to logout:", error);
         }
@@ -206,6 +300,18 @@ export default function SettingsScreen() {
             </View>
 
             <Button title="Save Rewards" onPress={handleSaveRewards} style={{ marginTop: SPACING.sm }} />
+          </Card>
+
+          {/* EXPORT SECTION */}
+          <View style={[styles.sectionHeader, {marginTop: SPACING.lg}]}>
+            <MaterialCommunityIcons name="download" size={24} color={COLORS.link} />
+            <Text style={styles.sectionTitle}>Data Export</Text>
+          </View>
+          <Card>
+            <Text style={styles.dangerDesc}>
+              Download the monthly leaderboard results as a CSV file. Share it with your team or keep it for records.
+            </Text>
+            <Button title="📥 Download Monthly Report" variant="secondary" onPress={handleExportCSV} />
           </Card>
 
           {/* DANGER ZONE: MONTH RESET */}

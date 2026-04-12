@@ -1,13 +1,17 @@
-import { doc, setDoc, query, collection, where, orderBy, onSnapshot, updateDoc, increment } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, orderBy, onSnapshot, updateDoc, increment, deleteField, getDoc } from 'firebase/firestore';
 import { db, secondaryAuth } from './firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { addMemberToTeam, removeMemberFromTeam, findOrCreateTeam } from './teams';
 
 export interface UserSchema {
   id: string;
   uid: string;
   name: string;
   studentId: string;
-  room: string;
+  teamId: string;
+  teamName: string;
+  dateOfBirth: string;
+  email: string;
   role: 'admin' | 'student';
   pointsThisMonth: number;
   totalTasksDone: number;
@@ -19,13 +23,14 @@ export interface UserSchema {
   profileImage: string | null;
 }
 
-export const createStudent = async (name: string, room: string) => {
+export const createStudent = async (name: string, teamName: string, dateOfBirth: string) => {
   try {
-    // Basic auto-generated sequential ID 
-    // Usually you query the last student, but for simplicity here we use a random string or time
     const studentId = `STU${Math.floor(1000 + Math.random() * 9000)}`;
     const email = `${studentId.toLowerCase()}@tq.app`;
-    const password = "pass" + Math.floor(1000 + Math.random() * 9000); // 4-digit PIN default
+    const password = `${studentId.toUpperCase()}@123`;
+
+    // Find or create the team
+    const teamId = teamName ? await findOrCreateTeam(teamName) : '';
 
     const userCred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
     const uid = userCred.user.uid;
@@ -35,7 +40,10 @@ export const createStudent = async (name: string, room: string) => {
       uid,
       name,
       studentId,
-      room,
+      teamId,
+      teamName: teamName || '',
+      dateOfBirth: dateOfBirth || '',
+      email,
       role: 'student',
       pointsThisMonth: 0,
       totalTasksDone: 0,
@@ -47,7 +55,13 @@ export const createStudent = async (name: string, room: string) => {
     };
 
     await setDoc(doc(db, 'users', uid), newStudent);
-    return { studentId, password }; // return credentials so admin can give them to the student
+
+    // Add to team members
+    if (teamId) {
+      await addMemberToTeam(teamId, uid);
+    }
+
+    return { studentId, email, password };
   } catch (error) {
     console.error("Error creating student: ", error);
     throw error;
@@ -63,8 +77,30 @@ export const observeStudents = (callback: (users: UserSchema[]) => void) => {
 
   return onSnapshot(q, (snapshot) => {
     const students: UserSchema[] = [];
-    snapshot.forEach((doc) => students.push(doc.data() as UserSchema));
-    callback(students);
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      students.push({
+        id: doc.id,
+        uid: doc.id,
+        name: data.name || '',
+        studentId: data.studentId || '',
+        teamId: data.teamId || '',
+        teamName: data.teamName || '',
+        dateOfBirth: data.dateOfBirth || '',
+        email: data.email || '',
+        role: 'student',
+        pointsThisMonth: data.pointsThisMonth || 0,
+        totalTasksDone: data.totalTasksDone || 0,
+        streakDays: data.streakDays || 0,
+        badges: data.badges || [],
+        isActive: data.isActive !== false,
+        isSuspended: data.isSuspended || false,
+        suspensionEnd: data.suspensionEnd?.toDate?.() || undefined,
+        profileImage: data.profileImage || null,
+      });
+    });
+    // Filter out inactive students in the observer
+    callback(students.filter(s => s.isActive !== false));
   }, error => {
     console.error("Error observing students: ", error);
   });
@@ -79,7 +115,28 @@ export const observeLeaderboard = (callback: (users: UserSchema[]) => void) => {
 
   return onSnapshot(q, (snapshot) => {
     const students: UserSchema[] = [];
-    snapshot.forEach((doc) => students.push(doc.data() as UserSchema));
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.isActive === false) return; // Skip inactive students
+      students.push({
+        id: doc.id,
+        uid: doc.id,
+        name: data.name || '',
+        studentId: data.studentId || '',
+        teamId: data.teamId || '',
+        teamName: data.teamName || '',
+        dateOfBirth: data.dateOfBirth || '',
+        email: data.email || '',
+        role: 'student',
+        pointsThisMonth: data.pointsThisMonth || 0,
+        totalTasksDone: data.totalTasksDone || 0,
+        streakDays: data.streakDays || 0,
+        badges: data.badges || [],
+        isActive: data.isActive !== false,
+        isSuspended: data.isSuspended || false,
+        profileImage: data.profileImage || null,
+      });
+    });
     callback(students);
   }, error => {
     console.error("Error observing leaderboard: ", error);
@@ -99,6 +156,10 @@ export const updateUserPoints = async (userId: string, points: number) => {
   }
 };
 
+/**
+ * Award bonus points to a user (admin gift).
+ * Does NOT increment team points — team points only update via approveSubmission.
+ */
 export const awardAdminPoints = async (userId: string, points: number) => {
   try {
     const userRef = doc(db, 'users', userId);
@@ -111,7 +172,26 @@ export const awardAdminPoints = async (userId: string, points: number) => {
   }
 };
 
-import { deleteField } from 'firebase/firestore';
+/**
+ * Soft-delete a student: sets isActive to false and removes from team.
+ * Does NOT delete Firebase Auth user.
+ */
+export const deleteStudent = async (userId: string, teamId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      isActive: false,
+    });
+
+    // Remove from team members
+    if (teamId) {
+      await removeMemberFromTeam(teamId, userId);
+    }
+  } catch (error) {
+    console.error("Error deleting student: ", error);
+    throw error;
+  }
+};
 
 export const updateStudentSuspension = async (userId: string, durationDays: number | null) => {
   if (!userId) throw new Error("Invalid user ID");

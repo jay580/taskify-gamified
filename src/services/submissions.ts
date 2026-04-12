@@ -1,6 +1,7 @@
-import { collection, query, where, doc, writeBatch, Timestamp, onSnapshot, increment } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, Timestamp, onSnapshot, increment, getDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { createNotification } from './notifications';
+import { incrementTeamPoints } from './teams';
 
 export interface Submission {
   id: string;
@@ -10,6 +11,7 @@ export interface Submission {
   title: string;
   description: string;
   photoUrl: string;
+  photoUrls?: string[];
   notes: string;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason: string;
@@ -33,6 +35,11 @@ export const observePendingSubmissions = (callback: (submissions: Submission[]) 
         title: data.title || '',
         description: data.description || '',
         photoUrl: data.photoUrl || '',
+        photoUrls: Array.isArray(data.photoUrls)
+          ? data.photoUrls
+          : data.photoUrl
+            ? [data.photoUrl]
+            : [],
         notes: data.notes || '',
         status: data.status,
         rejectionReason: data.rejectionReason || '',
@@ -63,7 +70,6 @@ export const approveSubmission = async (submission: Submission, taskPoints: numb
     });
 
     // Update user points + tasks done
-    console.log("submission: ", submission);
     const userRef = doc(db, 'users', submission.studentId);
     batch.update(userRef, {
       pointsThisMonth: increment(taskPoints),
@@ -80,6 +86,17 @@ export const approveSubmission = async (submission: Submission, taskPoints: numb
 
     // ALL ONE ATOMIC OP
     await batch.commit();
+
+    // Increment team points AFTER batch commit (non-atomic but safe)
+    try {
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
+      if (userData?.teamId) {
+        await incrementTeamPoints(userData.teamId, taskPoints);
+      }
+    } catch (teamError) {
+      console.error("Error incrementing team points (non-critical):", teamError);
+    }
   } catch (error) {
     console.error("Error approving submission: ", error);
     throw error;

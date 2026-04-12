@@ -5,8 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -14,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUser } from '../../hooks/useUser';
 import {
   getAvailableTasks,
   getAppSettings,
@@ -21,10 +20,14 @@ import {
 } from '../../services/firestore';
 import type { Task, AppSettings } from '../../types';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
+import { Avatar } from '../../components/Avatar';
+import FadeInView from '../../components/FadeInView';
+import { getTaskStatus, getTaskStatusLabel } from '../../utils/taskStatus';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { userProfile, refreshProfile } = useAuth();
+  const user = useUser();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -64,15 +67,12 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [loadData, refreshProfile]);
 
-  const formatDeadline = (iso: string | null) => {
-    if (!iso) return 'No deadline';
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMs = d.getTime() - now.getTime();
-    const diffH = Math.round(diffMs / 3600000);
-    if (diffH < 0) return 'Expired';
-    if (diffH < 24) return `${diffH}h left`;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const getQuestTimeText = (task: Task) => {
+    return getTaskStatusLabel({
+      createdAt: task.createdAt,
+      duration: task.duration,
+      durationType: task.durationType,
+    });
   };
 
   const getCategoryColor = (cat: string) => {
@@ -93,9 +93,10 @@ export default function HomeScreen() {
     );
   }
 
-  const displayName = userProfile?.name ?? 'Student';
-  const points = userProfile?.pointsThisMonth ?? 0;
-  const streak = userProfile?.streakDays ?? 0;
+  const displayUser = user || userProfile;
+  const displayName = displayUser?.name ?? 'Student';
+  const points = displayUser?.pointsThisMonth ?? 0;
+  const streak = displayUser?.streakDays ?? 0;
 
   return (
     <View style={styles.container}>
@@ -110,14 +111,17 @@ export default function HomeScreen() {
             {/* Profile Info */}
             <View style={styles.profileRow}>
               <View style={styles.avatarContainer}>
-                <Image
-                  source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png' }}
-                  style={styles.avatar}
-                />
+                <Avatar user={displayUser} size={50} />
               </View>
               <View style={styles.profileTextContainer}>
                 <Text style={styles.welcomeText}>Welcome back,</Text>
                 <Text style={styles.nameText}>{displayName}</Text>
+                {displayUser?.teamName ? (
+                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2}}>
+                    <MaterialCommunityIcons name="shield-star" size={12} color={COLORS.accent} />
+                    <Text style={{color: COLORS.accent, fontSize: 12, fontWeight: '700'}}>Team {displayUser.teamName}</Text>
+                  </View>
+                ) : null}
               </View>
               <View style={styles.iconButtonsRow}>
                 <TouchableOpacity style={styles.iconButton}>
@@ -131,23 +135,25 @@ export default function HomeScreen() {
             </View>
 
             {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="trophy-outline" size={28} color={COLORS.accent} />
-                <Text style={styles.statLabel}>Rank</Text>
-                <Text style={styles.statValue}>#{rank || '-'}</Text>
+            <FadeInView delay={100}>
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <MaterialCommunityIcons name="trophy-outline" size={28} color={COLORS.accent} />
+                  <Text style={styles.statLabel}>Rank</Text>
+                  <Text style={styles.statValue}>#{rank || '-'}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <MaterialCommunityIcons name="star-outline" size={28} color={COLORS.gold} />
+                  <Text style={styles.statLabel}>Points</Text>
+                  <Text style={styles.statValue}>{points}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <MaterialCommunityIcons name="trending-up" size={28} color={COLORS.success} />
+                  <Text style={styles.statLabel}>Streak</Text>
+                  <Text style={styles.statValue}>{streak}d</Text>
+                </View>
               </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="star-outline" size={28} color={COLORS.gold} />
-                <Text style={styles.statLabel}>Points</Text>
-                <Text style={styles.statValue}>{points}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="trending-up" size={28} color={COLORS.success} />
-                <Text style={styles.statLabel}>Streak</Text>
-                <Text style={styles.statValue}>{streak}d</Text>
-              </View>
-            </View>
+            </FadeInView>
 
             <Text style={styles.sectionTitleDark}>Daily Quests</Text>
           </SafeAreaView>
@@ -160,33 +166,39 @@ export default function HomeScreen() {
               <Text style={styles.emptyText}>No quests available right now</Text>
             </View>
           ) : (
-            tasks.map((quest) => {
+            tasks.map((quest, index) => {
               const color = getCategoryColor(quest.category);
-              const timeText = formatDeadline(quest.deadline);
-              const isExpired = timeText === 'Expired';
+              const timeText = getQuestTimeText(quest);
+              const isExpired = getTaskStatus({
+                createdAt: quest.createdAt,
+                duration: quest.duration,
+                durationType: quest.durationType,
+              }) === 'expired';
               return (
-                <View key={quest.id} style={styles.questCard}>
-                  <View style={[styles.questIconBox, { backgroundColor: COLORS.surfaceAlt }]}>
-                    <MaterialCommunityIcons
-                      name={isExpired ? 'check-circle-outline' : 'clock-outline'}
-                      size={28}
-                      color={isExpired ? COLORS.success : color}
-                    />
-                  </View>
-                  <View style={styles.questInfo}>
-                    <Text style={styles.questTitle}>{quest.title}</Text>
-                    <View style={styles.questTagsRow}>
-                      <View style={styles.questTag}>
-                        <Text style={styles.questTagText}>{quest.category}</Text>
+                <FadeInView key={quest.id || index.toString()} delay={200 + index * 80}>
+                  <View style={styles.questCard}>
+                    <View style={[styles.questIconBox, { backgroundColor: COLORS.surfaceAlt }]}>
+                      <MaterialCommunityIcons
+                        name={isExpired ? 'alert-circle-outline' : 'clock-outline'}
+                        size={28}
+                        color={isExpired ? COLORS.error : color}
+                      />
+                    </View>
+                    <View style={styles.questInfo}>
+                      <Text style={styles.questTitle}>{quest.title}</Text>
+                      <View style={styles.questTagsRow}>
+                        <View style={styles.questTag}>
+                          <Text style={styles.questTagText}>{quest.category}</Text>
+                        </View>
+                        {timeText ? <Text style={styles.questTimeText}>• {timeText}</Text> : null}
                       </View>
-                      <Text style={styles.questTimeText}>• {timeText}</Text>
+                    </View>
+                    <View style={styles.questPointsBox}>
+                      <Text style={styles.pointsPlus}>+{quest.points}</Text>
+                      <Text style={styles.pointsLabel}>POINTS</Text>
                     </View>
                   </View>
-                  <View style={styles.questPointsBox}>
-                    <Text style={styles.pointsPlus}>+{quest.points}</Text>
-                    <Text style={styles.pointsLabel}>POINTS</Text>
-                  </View>
-                </View>
+                </FadeInView>
               );
             })
           )}
@@ -194,22 +206,24 @@ export default function HomeScreen() {
 
         {/* REWARD OF THE MONTH */}
         {settings && (
-          <View style={styles.rewardContainer}>
-            <View style={styles.rewardCard}>
-              <View style={styles.rewardHeader}>
-                <MaterialCommunityIcons name="gift-outline" size={20} color={COLORS.white} />
-                <Text style={styles.rewardTitleText}>REWARDS THIS MONTH</Text>
+          <FadeInView delay={400}>
+            <View style={styles.rewardContainer}>
+              <View style={styles.rewardCard}>
+                <View style={styles.rewardHeader}>
+                  <MaterialCommunityIcons name="gift-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.rewardTitleText}>REWARDS THIS MONTH</Text>
+                </View>
+                <Text style={styles.rewardMainTitle}>🥇 {settings.reward1st}</Text>
+                <Text style={styles.rewardSubtext}>🥈 {settings.reward2nd} • 🥉 {settings.reward3rd}</Text>
+                <TouchableOpacity
+                  style={styles.rewardButton}
+                  onPress={() => navigation.navigate('Rank')}
+                >
+                  <Text style={styles.rewardButtonText}>Check Leaderboard</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.rewardMainTitle}>🥇 {settings.reward1st}</Text>
-              <Text style={styles.rewardSubtext}>🥈 {settings.reward2nd} • 🥉 {settings.reward3rd}</Text>
-              <TouchableOpacity
-                style={styles.rewardButton}
-                onPress={() => navigation.navigate('Rank')}
-              >
-                <Text style={styles.rewardButtonText}>Check Leaderboard</Text>
-              </TouchableOpacity>
             </View>
-          </View>
+          </FadeInView>
         )}
 
         {/* ANNOUNCEMENT */}

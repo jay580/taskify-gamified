@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { submitTask } from '../../services/firestore';
 import type { Task, TaskCategory } from '../../types';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '../../theme';
+import { getTaskStatusLabel } from '../../utils/taskStatus';
 
 const CATEGORY_COLORS: Record<TaskCategory, string> = {
   Academic: COLORS.link,
@@ -39,25 +41,13 @@ interface Props {
 export default function TaskDetail({ route, navigation }: Props) {
   const { task } = route.params;
   const { userProfile } = useAuth();
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const categoryColor = CATEGORY_COLORS[task.category];
   const categoryIcon = CATEGORY_ICONS[task.category];
-
-  const formatDeadline = (isoString: string | null) => {
-    if (!isoString) return 'No deadline';
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return 'Overdue';
-    if (diffDays === 0) return 'Due today';
-    if (diffDays === 1) return 'Due tomorrow';
-    return `Due in ${diffDays} days`;
-  };
+  const timeStatus = getTaskStatusLabel(task);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -69,13 +59,13 @@ export default function TaskDetail({ route, navigation }: Props) {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsMultipleSelection: true,
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        setImageUri(result.assets[0].uri);
+      if (!result.canceled && result.assets?.length) {
+        const picked = result.assets.map((asset) => asset.uri).filter(Boolean);
+        setImages((prev) => Array.from(new Set([...prev, ...picked])));
       }
     } catch (error) {
       console.error('Image picker error:', error);
@@ -98,7 +88,7 @@ export default function TaskDetail({ route, navigation }: Props) {
       });
 
       if (!result.canceled && result.assets[0]) {
-        setImageUri(result.assets[0].uri);
+        setImages((prev) => Array.from(new Set([...prev, result.assets[0].uri])));
       }
     } catch (error) {
       console.error('Camera error:', error);
@@ -112,8 +102,8 @@ export default function TaskDetail({ route, navigation }: Props) {
       return;
     }
 
-    if (!imageUri) {
-      Alert.alert('Photo Required', 'Please upload a photo as proof of task completion.');
+    if (!images.length) {
+      Alert.alert('Photo Required', 'Please upload at least one photo as proof of task completion.');
       return;
     }
 
@@ -123,7 +113,7 @@ export default function TaskDetail({ route, navigation }: Props) {
         task.id,
         userProfile.uid,
         task,
-        imageUri,
+        images,
         notes.trim() || undefined
       );
 
@@ -141,8 +131,7 @@ export default function TaskDetail({ route, navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
@@ -151,20 +140,19 @@ export default function TaskDetail({ route, navigation }: Props) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Task Info Card */}
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View style={styles.taskCard}>
           <View style={[styles.iconBox, { backgroundColor: categoryColor }]}>
             <Ionicons name={categoryIcon} size={28} color={COLORS.white} />
           </View>
-          
+
           <Text style={styles.taskTitle}>{task.title}</Text>
-          
+
           <View style={styles.metaRow}>
             <View style={[styles.categoryBadge, { backgroundColor: categoryColor + '20' }]}>
               <Text style={[styles.categoryText, { color: categoryColor }]}>{task.category}</Text>
             </View>
-            <Text style={styles.deadline}>{formatDeadline(task.deadline)}</Text>
+            {timeStatus ? <Text style={styles.deadline}>{timeStatus}</Text> : null}
           </View>
 
           <View style={styles.pointsRow}>
@@ -176,23 +164,25 @@ export default function TaskDetail({ route, navigation }: Props) {
           <Text style={styles.description}>{task.description}</Text>
         </View>
 
-        {/* Submit Section */}
         <View style={styles.submitSection}>
           <Text style={styles.sectionTitle}>Submit Your Work</Text>
 
-          {/* Photo Upload */}
           <Text style={styles.fieldLabel}>Photo Proof *</Text>
           <View style={styles.photoSection}>
-            {imageUri ? (
-              <View style={styles.previewContainer}>
-                <Image source={{ uri: imageUri }} style={styles.previewImage} />
-                <TouchableOpacity 
-                  style={styles.removeButton}
-                  onPress={() => setImageUri(null)}
-                >
-                  <Ionicons name="close-circle" size={28} color={COLORS.error} />
-                </TouchableOpacity>
-              </View>
+            {images.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {images.map((uri, index) => (
+                  <View key={`${uri}-${index}`} style={styles.previewContainer}>
+                    <Image source={{ uri }} style={styles.previewImage} />
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => setImages((prev) => prev.filter((_, i) => i !== index))}
+                    >
+                      <Ionicons name="close-circle" size={28} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
             ) : (
               <View style={styles.uploadButtons}>
                 <TouchableOpacity style={styles.uploadButton} onPress={takePhoto}>
@@ -207,7 +197,6 @@ export default function TaskDetail({ route, navigation }: Props) {
             )}
           </View>
 
-          {/* Notes */}
           <Text style={styles.fieldLabel}>Notes (Optional)</Text>
           <TextInput
             style={styles.notesInput}
@@ -220,7 +209,6 @@ export default function TaskDetail({ route, navigation }: Props) {
             textAlignVertical="top"
           />
 
-          {/* Submit Button */}
           <TouchableOpacity
             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
             onPress={handleSubmit}
@@ -237,7 +225,7 @@ export default function TaskDetail({ route, navigation }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -250,7 +238,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.md,
     backgroundColor: COLORS.surface,
@@ -335,7 +322,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,
     padding: SPACING.lg,
-    marginBottom: 40,
+    marginBottom: SPACING.lg,
   },
   sectionTitle: {
     ...TYPOGRAPHY.cardTitle,
@@ -372,10 +359,11 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     position: 'relative',
+    marginRight: SPACING.sm,
   },
   previewImage: {
-    width: '100%',
-    height: 200,
+    width: 160,
+    height: 160,
     borderRadius: RADIUS.md,
   },
   removeButton: {

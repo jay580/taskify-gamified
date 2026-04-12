@@ -1,4 +1,4 @@
-import { doc, setDoc, getDocs, collection, writeBatch, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, writeBatch, Timestamp, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 export const saveAnnouncement = async (announcement: string, expiry: Date) => {
@@ -18,11 +18,9 @@ export const setRewards = async (reward1st: string, reward2nd: string, reward3rd
   try {
     const settingsRef = doc(db, 'settings', 'global');
     await setDoc(settingsRef, {
-      rewards: {
-        firstPlace: reward1st,
-        secondPlace: reward2nd,
-        thirdPlace: reward3rd
-      }
+      reward1st: reward1st || '',
+      reward2nd: reward2nd || '',
+      reward3rd: reward3rd || '',
     }, { merge: true });
   } catch (error) {
     console.error("Error saving rewards: ", error);
@@ -33,12 +31,23 @@ export const setRewards = async (reward1st: string, reward2nd: string, reward3rd
 export const getRewards = async () => {
   try {
     const docRef = doc(db, 'settings', 'global');
-    const docSnap = await getDocs(collection(db, 'settings')); // No, getDoc is better, let's fix this in settings.ts shortly actually I'll use list_dir to see imports. I'll just write it correctly here.
-    return null; // I'll just replace the whole file or append carefully.
-  } catch(e) {
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      return { reward1st: '', reward2nd: '', reward3rd: '' };
+    }
+
+    const data = docSnap.data();
+    const rewards = data?.rewards ?? {};
+    return {
+      reward1st: data?.reward1st ?? rewards.firstPlace ?? '',
+      reward2nd: data?.reward2nd ?? rewards.secondPlace ?? '',
+      reward3rd: data?.reward3rd ?? rewards.thirdPlace ?? '',
+    };
+  } catch (e) {
+    console.error('Error getting rewards:', e);
     return null;
   }
-}
+};
 
 
 export const resetMonth = async () => {
