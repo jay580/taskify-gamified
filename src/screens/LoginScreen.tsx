@@ -153,6 +153,26 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: COLORS.textDark,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     marginBottom: SPACING.xs,
   },
   subtitle: {
