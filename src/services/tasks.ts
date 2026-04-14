@@ -1,5 +1,6 @@
-import { collection, addDoc, getDocs, Timestamp, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
+import type { TaskDurationType } from '../utils/taskStatus';
 
 export type TaskPoints = 5 | 10 | 15 | 20;
 
@@ -10,7 +11,11 @@ export interface Task {
   category: string;
   points: TaskPoints;
   deadline: Date;
-  assignedTo: string; // e.g., 'all', or specific STU ID
+  startTime?: Date | null;    // Legacy
+  endTime?: Date | null;      // Legacy
+  duration?: number;
+  durationType?: TaskDurationType;
+  assignedTo: string;
   isTeamTask: boolean;
   isRepeatable: boolean;
   isActive: boolean;
@@ -19,11 +24,34 @@ export interface Task {
 
 export const createTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
   try {
-    const docRef = await addDoc(collection(db, 'tasks'), {
-      ...task,
-      createdAt: Timestamp.now(),
+    const safeDuration =
+      typeof task.duration === 'number' && Number.isFinite(task.duration) && task.duration > 0
+        ? Math.floor(task.duration)
+        : 0;
+
+    const taskData: Record<string, any> = {
+      title: task.title,
+      description: task.description,
+      category: task.category,
+      points: task.points,
       deadline: Timestamp.fromDate(task.deadline),
-    });
+      assignedTo: task.assignedTo,
+      isTeamTask: task.isTeamTask,
+      isRepeatable: task.isRepeatable,
+      isActive: task.isActive,
+      createdAt: serverTimestamp(),
+      duration: safeDuration,
+      durationType: task.durationType ?? 'hours',
+    };
+
+    if (task.startTime) {
+      taskData.startTime = Timestamp.fromDate(task.startTime);
+    }
+    if (task.endTime) {
+      taskData.endTime = Timestamp.fromDate(task.endTime);
+    }
+
+    const docRef = await addDoc(collection(db, 'tasks'), taskData);
     return docRef.id;
   } catch (error) {
     console.error("Error creating task: ", error);
@@ -48,6 +76,10 @@ export const observeTasks = (callback: (tasks: Task[]) => void, activeOnly: bool
         category: data.category || '',
         points: data.points as TaskPoints,
         deadline: data.deadline?.toDate(),
+        startTime: data.startTime?.toDate() || null,
+        endTime: data.endTime?.toDate() || null,
+        duration: typeof data.duration === 'number' ? data.duration : 0,
+        durationType: data.durationType,
         assignedTo: data.assignedTo || 'all',
         isTeamTask: data.isTeamTask || false,
         isRepeatable: data.isRepeatable || false,

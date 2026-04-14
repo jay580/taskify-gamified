@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Text, TextInput } from 'react-native-paper';
+import { Picker } from '@react-native-picker/picker';
 import { COLORS, SPACING, RADIUS } from '../../theme';
 import Header from '../../components/Header';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import { createTask, TaskPoints } from '../../services/tasks';
+import type { TaskDurationType } from '../../utils/taskStatus';
 
 const POINTS_OPTIONS: TaskPoints[] = [5, 10, 15, 20];
 
@@ -14,6 +16,8 @@ export default function TaskManagerScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [points, setPoints] = useState<TaskPoints>(5);
+  const [duration, setDuration] = useState('1');
+  const [durationType, setDurationType] = useState<TaskDurationType>('hours');
   const [loading, setLoading] = useState(false);
 
   const handleCreateTask = async () => {
@@ -30,6 +34,8 @@ export default function TaskManagerScreen() {
         category: 'General',
         points,
         deadline: new Date(),
+        duration: Math.max(1, Number(duration) || 1),
+        durationType,
         assignedTo: 'all',
         isTeamTask: false,
         isRepeatable: false,
@@ -39,6 +45,8 @@ export default function TaskManagerScreen() {
       setTitle('');
       setDescription('');
       setPoints(5);
+      setDuration('1');
+      setDurationType('hours');
     } catch (error) {
       Alert.alert("Error", "Failed to create task.");
     } finally {
@@ -98,6 +106,32 @@ export default function TaskManagerScreen() {
               ))}
             </View>
 
+            <Text style={styles.label}>Task Duration</Text>
+            <View style={styles.durationRow}>
+              <TextInput
+                label="Duration"
+                value={duration}
+                onChangeText={setDuration}
+                mode="outlined"
+                keyboardType="number-pad"
+                style={[styles.input, styles.durationInput]}
+                outlineColor={COLORS.border}
+                activeOutlineColor={COLORS.primary}
+              />
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={durationType}
+                  onValueChange={(value) => setDurationType(value as TaskDurationType)}
+                  style={styles.picker}
+                  dropdownIconColor={COLORS.textDark}
+                >
+                  <Picker.Item label="Minutes" value="minutes" />
+                  <Picker.Item label="Hours" value="hours" />
+                  <Picker.Item label="Days" value="days" />
+                </Picker>
+              </View>
+            </View>
+
             <Button
               title={loading ? "Creating..." : "Create Task"}
               onPress={handleCreateTask}
@@ -119,6 +153,16 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 100 },
   label: { fontSize: 16, color: COLORS.text, fontWeight: '600', marginBottom: SPACING.sm, marginTop: SPACING.sm },
   pointsContainer: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.xl, flexWrap: 'wrap' },
+  durationRow: { marginBottom: SPACING.lg },
+  durationInput: { marginBottom: SPACING.sm },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    overflow: 'hidden',
+  },
+  picker: { color: COLORS.textDark },
   pointChip: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,

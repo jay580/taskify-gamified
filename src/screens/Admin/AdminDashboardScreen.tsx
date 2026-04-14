@@ -6,15 +6,11 @@ import Header from '../../components/Header';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Card from '../../components/Card';
 import { logout } from '../../services/auth';
-import { useNavigation } from '@react-navigation/native';
 
 export default function AdminDashboardScreen() {
-  const navigation = useNavigation<any>();
-
   const handleLogout = async () => {
     try {
       await logout();
-      navigation.replace('Auth');
     } catch (error) {
       console.error("Failed to logout:", error);
     }

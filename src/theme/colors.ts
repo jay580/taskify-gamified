@@ -35,4 +35,20 @@ export const COLORS = {
   overlayDark: "rgba(0,0,0,0.8)",
   primaryLight: "#2D3748",
   black: "#000000",
+  
+  // Glassmorphism & Depth
+  glassBackgroundLv1: "rgba(30, 41, 59, 0.85)", // Strongest background
+  glassBackgroundLv2: "rgba(30, 41, 59, 0.55)", // Standard glass
+  glassBackgroundLv3: "rgba(30, 41, 59, 0.35)", // Minimal list rows
+  glassBorder: "rgba(255, 255, 255, 0.12)",
+  glassHighlight: "rgba(255, 255, 255, 0.05)",
+  glowPrimary: "rgba(159, 122, 234, 0.5)",
+  glowAccent: "rgba(236, 201, 75, 0.5)",
+  glowError: "rgba(229, 62, 62, 0.4)",
+  
+  // App Gradients
+  gradientBgStart: "#0A0F1D", // Deepest navy
+  gradientBgEnd: "#141124",   // Slight purple/indigo tint
+  gradientCardTop: "rgba(255, 255, 255, 0.1)",
+  gradientCardBottom: "rgba(255, 255, 255, 0.0)",
 };

@@ -4,8 +4,9 @@ import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from '../theme';
 import { useNavigation } from '@react-navigation/native';
-import { Avatar } from './Avatar';
+import { AppAvatar } from './Avatar';
 import { useUser } from '../hooks/useUser';
+import Logo from './Logo';
 
 export default function Header(props: any) {
   const insets = useSafeAreaInsets();
@@ -22,9 +23,12 @@ export default function Header(props: any) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + SPACING.lg }]}>
-      <View>
-        <Text style={styles.title}>TaskQuest</Text>
-        <Text style={styles.subtitle}>Shelter Don Bosco</Text>
+      <View style={styles.leftContainer}>
+        <Logo size={40} style={styles.logo} />
+        <View>
+          <Text style={styles.title}>TASKIFY</Text>
+          <Text style={styles.subtitle}>Shelter Don Bosco</Text>
+        </View>
       </View>
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <Pressable 
@@ -36,7 +40,7 @@ export default function Header(props: any) {
             pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }
           ]}
         >
-          <Avatar user={user} size={48} />
+          <AppAvatar user={user} size={48} />
         </Pressable>
       </Animated.View>
     </View>
@@ -60,6 +64,13 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     elevation: 12,
     zIndex: 100,
+  },
+  leftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    marginRight: SPACING.md,
   },
   title: {
     ...TYPOGRAPHY.header,

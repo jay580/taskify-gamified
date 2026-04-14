@@ -37,7 +37,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createUserProfile = void 0;
+exports.onUserDeleted = exports.createUserProfile = void 0;
 const v1_1 = require("firebase-functions/v1");
 const logger = __importStar(require("firebase-functions/logger"));
 const admin = __importStar(require("firebase-admin"));
@@ -68,6 +68,20 @@ exports.createUserProfile = v1_1.auth.user().onCreate(async (user) => {
     catch (error) {
         logger.error(`Failed to create user profile for ${uid}:`, error);
         throw error;
+    }
+});
+/**
+ * Triggered when a user document is deleted from Firestore.
+ * Deletes the corresponding user from Firebase Auth.
+ */
+exports.onUserDeleted = v1_1.firestore.document("users/{uid}").onDelete(async (snap, context) => {
+    const uid = context.params.uid;
+    try {
+        await admin.auth().deleteUser(uid);
+        logger.info(`Successfully deleted auth user ${uid}`);
+    }
+    catch (error) {
+        logger.error(`Failed to delete auth user ${uid}:`, error);
     }
 });
 //# sourceMappingURL=index.js.map

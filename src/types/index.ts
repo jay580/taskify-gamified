@@ -3,7 +3,11 @@ export interface UserProfile {
   uid: string;
   name: string;
   studentId?: string;        // e.g., "STU001"
-  room: string;
+  teamId: string;
+  teamName: string;
+  dateOfBirth: string;       // "YYYY-MM-DD"
+  email: string;
+  profileImage: string | null;
   role: 'student' | 'admin';
   pointsThisMonth: number;
   totalTasksDone: number;
@@ -12,6 +16,15 @@ export interface UserProfile {
   isActive: boolean;
   isSuspended?: boolean;
   suspensionEnd?: string | null;  // ISO timestamp or null
+  needsProfileUpdate?: boolean;
+}
+
+// ── Team ──
+export interface Team {
+  id: string;
+  name: string;
+  totalPoints: number;
+  members: string[];          // Array of user UIDs
 }
 
 // ── Task ──
@@ -24,6 +37,10 @@ export interface Task {
   category: TaskCategory;
   points: number;              // Must be 5, 10, 15, or 20
   deadline: string | null;     // ISO string or null
+  startTime: string | null;    // Legacy field
+  endTime: string | null;      // Legacy field
+  duration?: number | null;
+  durationType?: 'minutes' | 'hours' | 'days' | null;
   assignedTo: string;          // "all" or specific UID
   isTeamTask: boolean;
   isRepeatable: boolean;
@@ -43,6 +60,7 @@ export interface Submission {
   title: string;
   description: string;
   photoUrl: string;
+  photoUrls?: string[];
   notes: string;
   status: SubmissionStatus;
   rejectionReason: string;
@@ -91,7 +109,7 @@ export interface LeaderboardEntry {
   uid: string;
   name: string;
   initials: string;
-  room: string;
+  teamName: string;
   totalTasksDone: number;
   points: number;              // pointsThisMonth
   rank: number;

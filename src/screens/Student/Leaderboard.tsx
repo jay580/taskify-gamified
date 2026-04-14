@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,32 +7,74 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Animated,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeaderboard } from '../../services/firestore';
+import { observeTeamLeaderboard, TeamSchema } from '../../services/teams';
 import type { LeaderboardEntry } from '../../types';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
+import FadeInView from '../../components/FadeInView';
+import Card from '../../components/Card';
 
-const TABS = ['This month'];
+const TABS = ['Student Rank', 'Team Rank'];
 
-// Assign colors to top 3 + rest
+// Advanced podium structure logic
 const PODIUM_STYLES = [
-  { color: COLORS.surface, textColor: COLORS.link }, // 1st
-  { color: COLORS.surface, textColor: COLORS.success }, // 2nd
-  { color: COLORS.surface, textColor: COLORS.warning }, // 3rd
+  { glow: COLORS.gold, baseHighlight: 'rgba(236, 201, 75, 0.3)', medal: 'shield-crown' },       // 1st
+  { glow: COLORS.link, baseHighlight: 'rgba(159, 122, 234, 0.2)', medal: 'shield-half-full' },   // 2nd
+  { glow: COLORS.warning, baseHighlight: 'rgba(237, 137, 54, 0.2)', medal: 'shield-outline' },   // 3rd
 ];
 
-const AVATAR_COLORS = [COLORS.surface, COLORS.surface, COLORS.surface, COLORS.surface, COLORS.surface];
-const AVATAR_TEXT_COLORS = [COLORS.link, COLORS.success, COLORS.warning, COLORS.secondary, COLORS.muted];
+function TeamPodium({ teams }: { teams: TeamSchema[] }) {
+  const topTeams = teams.slice(0, 3);
+  if (!topTeams.length) return null;
+
+  const ranked = topTeams.map((team, index) => ({ ...team, rank: index + 1 }));
+  const ordered = ranked.length >= 3 ? [ranked[1], ranked[0], ranked[2]] : ranked;
+
+  const renderTeamPodiumItem = (team: any, isCenter: boolean) => {
+    const styleIdx = team.rank - 1;
+    const style = PODIUM_STYLES[styleIdx] || PODIUM_STYLES[2];
+    
+    return (
+      <View key={team.id} style={[styles.podiumItem, isCenter ? styles.podiumCenter : null]}>
+        <View style={[styles.avatarGlow, { shadowColor: style.glow }]}>
+          <View style={[styles.podiumAvatar, isCenter && styles.podiumAvatarCenter, { borderColor: style.glow }]}>
+            <MaterialCommunityIcons name="account-group" size={isCenter ? 32 : 24} color={style.glow} />
+          </View>
+        </View>
+        <Text style={styles.podiumName} numberOfLines={1}>{team.name}</Text>
+        <Text style={styles.podiumPoints}>{team.totalPoints} pts</Text>
+
+        <LinearGradient
+          colors={[style.baseHighlight, 'transparent']}
+          style={[styles.podiumBase, isCenter ? styles.podiumBaseCenter : styles.podiumBaseSide, { borderColor: `${style.glow}40` }]}
+        >
+          <MaterialCommunityIcons name={style.medal as any} size={isCenter ? 28 : 22} color={style.glow} />
+        </LinearGradient>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.podiumContainer}>
+      {ordered.map((team) => renderTeamPodiumItem(team, team.rank === 1))}
+    </View>
+  );
+}
 
 export default function LeaderboardScreen() {
   const { userProfile } = useAuth();
   const uid = userProfile?.uid ?? '';
 
-  const [activeTab, setActiveTab] = useState('This month');
+  const [activeTab, setActiveTab] = useState('Student Rank');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [teams, setTeams] = useState<TeamSchema[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,6 +92,8 @@ export default function LeaderboardScreen() {
   useEffect(() => {
     setLoading(true);
     loadData();
+    const unsubTeams = observeTeamLeaderboard(setTeams);
+    return () => unsubTeams();
   }, [loadData]);
 
   const onRefresh = useCallback(async () => {
@@ -58,109 +102,118 @@ export default function LeaderboardScreen() {
     setRefreshing(false);
   }, [loadData]);
 
-  // Calculate days left in the current month
-  const getDaysLeft = () => {
-    const now = new Date();
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return lastDay - now.getDate();
-  };
-
-  // Split top 3 for podium, rest for list
   const topThree = entries.slice(0, 3);
-  // Reorder for podium display: [2nd, 1st, 3rd]
-  const podiumOrder = topThree.length >= 3
-    ? [topThree[1], topThree[0], topThree[2]]
-    : topThree;
+  const podiumOrder = topThree.length >= 3 ? [topThree[1], topThree[0], topThree[2]] : topThree;
 
   const renderPodiumItem = (item: LeaderboardEntry, isCenter: boolean) => {
-    const podiumIdx = item.rank - 1;
-    const style = PODIUM_STYLES[podiumIdx] || PODIUM_STYLES[0];
+    const styleIdx = item.rank - 1;
+    const style = PODIUM_STYLES[styleIdx] || PODIUM_STYLES[2];
 
     return (
       <View key={item.uid} style={[styles.podiumItem, isCenter ? styles.podiumCenter : null]}>
-        <View
-          style={[
-            styles.podiumAvatar,
-            { backgroundColor: style.color },
-            isCenter && styles.podiumAvatarCenter,
-          ]}
-        >
-          <Text
-            style={[
-              styles.podiumAvatarText,
-              { color: style.textColor },
-              isCenter && styles.podiumAvatarTextCenter,
-            ]}
-          >
-            {item.initials}
-          </Text>
+        <View style={[styles.avatarGlow, { shadowColor: style.glow, elevation: isCenter ? 12 : 6 }]}>
+          <View style={[styles.podiumAvatar, isCenter && styles.podiumAvatarCenter, { borderColor: style.glow }]}>
+            <Text style={[styles.podiumAvatarText, isCenter && styles.podiumAvatarTextCenter, { color: COLORS.white }]}>
+              {item.initials}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.podiumName}>{item.name.split(' ')[0]}</Text>
+
+        <Text style={styles.podiumName} numberOfLines={1}>{item.name.split(' ')[0]}</Text>
         <Text style={styles.podiumPoints}>{item.points}</Text>
 
-        <View style={[styles.podiumBase, isCenter ? styles.podiumBaseCenter : styles.podiumBaseSide]}>
-          {item.rank === 1 && <Text style={styles.medalIcon}>🥇</Text>}
-          {item.rank === 2 && <Text style={styles.medalIcon}>🥈</Text>}
-          {item.rank === 3 && <Text style={styles.medalIcon}>🥉</Text>}
-        </View>
+        <LinearGradient
+          colors={[style.baseHighlight, 'transparent']}
+          style={[styles.podiumBase, isCenter ? styles.podiumBaseCenter : styles.podiumBaseSide, { borderColor: `${style.glow}40` }]}
+        >
+          <MaterialCommunityIcons name={style.medal as any} size={isCenter ? 28 : 22} color={style.glow} />
+        </LinearGradient>
       </View>
     );
   };
 
   const renderListItem = ({ item }: { item: LeaderboardEntry }) => {
     const isMe = item.uid === uid;
-    const colorIdx = (item.rank - 1) % AVATAR_COLORS.length;
-
+    
     return (
-      <View style={styles.listRow}>
-        <Text style={styles.listRank}>{item.rank}</Text>
+      <FadeInView delay={item.rank * 50}>
+        <View style={[styles.listRowWrapper, isMe && styles.listRowWrapperMe]}>
+          <LinearGradient colors={[COLORS.gradientCardTop, COLORS.gradientCardBottom]} style={styles.rowTopLight} />
+          
+          <Text style={styles.listRank}>#{item.rank}</Text>
 
-        <View style={[styles.listAvatar, { backgroundColor: AVATAR_COLORS[colorIdx] }]}>
-          <Text style={[styles.listAvatarText, { color: AVATAR_TEXT_COLORS[colorIdx] }]}>
-            {item.initials}
-          </Text>
-        </View>
-
-        <View style={styles.listInfo}>
-          <View style={styles.listNameRow}>
-            <Text style={[styles.listName, isMe && styles.listNameActive]}>{item.name}</Text>
-            {isMe && (
-              <View style={styles.youBadge}>
-                <Text style={styles.youBadgeText}>you</Text>
-              </View>
-            )}
+          <View style={styles.listAvatar}>
+            <Text style={styles.listAvatarText}>{item.initials}</Text>
           </View>
-          <Text style={styles.listSubtext}>
-            {item.room ? `${item.room} • ` : ''}{item.totalTasksDone} tasks
-          </Text>
-        </View>
 
-        <Text style={[styles.listPoints, isMe && styles.listPointsActive]}>{item.points}</Text>
-      </View>
+          <View style={styles.listInfo}>
+            <View style={styles.listNameRow}>
+              <Text style={styles.listName}>{item.name}</Text>
+              {isMe && (
+                <View style={styles.youBadge}>
+                  <Text style={styles.youBadgeText}>YOU</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.listSubtext}>
+              {item.teamName ? `${item.teamName} • ` : ''}{item.totalTasksDone} tasks
+            </Text>
+          </View>
+
+          <View style={styles.pointsBadge}>
+            <Text style={[styles.listPoints, isMe && { color: COLORS.white }]}>{item.points}</Text>
+            <MaterialCommunityIcons name="star" size={14} color={COLORS.gold} style={{marginLeft:2}}/>
+          </View>
+        </View>
+      </FadeInView>
+    );
+  };
+
+  const renderTeamItem = ({ item, index }: { item: TeamSchema; index: number }) => {
+    const rank = index + 1;
+    return (
+      <FadeInView delay={rank * 50}>
+        <View style={styles.listRowWrapper}>
+          <LinearGradient colors={[COLORS.gradientCardTop, COLORS.gradientCardBottom]} style={styles.rowTopLight} />
+          
+          <Text style={styles.listRank}>#{rank}</Text>
+          <View style={[styles.listAvatar, { backgroundColor: COLORS.glassBackgroundLv3 }]}>
+            <MaterialCommunityIcons name="account-group" size={20} color={COLORS.white} />
+          </View>
+
+          <View style={styles.listInfo}>
+            <Text style={styles.listName}>{item.name}</Text>
+            <Text style={styles.listSubtext}>{item.members.length} members</Text>
+          </View>
+
+          <View style={styles.pointsBadge}>
+            <Text style={styles.listPoints}>{item.totalPoints}</Text>
+            <MaterialCommunityIcons name="star" size={14} color={COLORS.gold} style={{marginLeft:2}}/>
+          </View>
+        </View>
+      </FadeInView>
     );
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={COLORS.secondary} />
-      </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* PURPLE HEADER SECTION */}
-      <View style={styles.headerBackground}>
-        <SafeAreaView edges={['top']}>
-          <View style={styles.headerTopRow}>
-            <Text style={styles.headerTitle}>Leaderboard</Text>
-            <View style={styles.daysLeftPill}>
-              <View style={styles.redDot} />
-              <Text style={styles.daysLeftText}>{getDaysLeft()} days left</Text>
-            </View>
-          </View>
+    <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={styles.container}>
+      {/* Background Ambience */}
+      <View style={styles.ambientGlow} />
 
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.headerTitle}>Leaderboard</Text>
+        </View>
+
+        <View style={{ paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg }}>
           <View style={styles.segmentedControl}>
             {TABS.map((tab) => {
               const isActive = activeTab === tab;
@@ -177,240 +230,133 @@ export default function LeaderboardScreen() {
               );
             })}
           </View>
+        </View>
 
-          {/* Podium */}
-          {podiumOrder.length > 0 && (
-            <View style={styles.podiumContainer}>
-              {podiumOrder.map((item, idx) =>
-                renderPodiumItem(item, idx === 1) // center item is the 1st place
-              )}
-            </View>
+        <View style={styles.podiumWrapper}>
+          {activeTab === 'Student Rank' ? (
+            podiumOrder.length > 0 ? (
+              <View style={styles.podiumContainer}>
+                {podiumOrder.map((item, idx) => renderPodiumItem(item, item.rank === 1))}
+              </View>
+            ) : null
+          ) : (
+            <TeamPodium teams={teams} />
           )}
-        </SafeAreaView>
-      </View>
+        </View>
 
-      {/* LIST SECTION */}
-      <View style={styles.listContainer}>
-        <FlatList
-          data={entries}
-          keyExtractor={(item) => item.uid}
-          renderItem={renderListItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.flatListContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
-          }
-        />
-      </View>
-    </View>
+        <View style={styles.listContainer}>
+          <FlatList
+            data={activeTab === 'Student Rank' ? entries : teams}
+            keyExtractor={(item, index) => ('uid' in item ? item.uid : item.id) || index.toString()}
+            renderItem={activeTab === 'Student Rank' ? renderListItem as any : renderTeamItem as any}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.flatListContent}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.white} />}
+          />
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.backgroundPrimary,
-  },
-  headerBackground: {
-    backgroundColor: COLORS.surface,
-    borderBottomLeftRadius: RADIUS.xl,
-    borderBottomRightRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: 40,
+  container: { flex: 1 },
+  ambientGlow: {
+    position: 'absolute', top: -150, left: '20%', width: 400, height: 400, borderRadius: 200, backgroundColor: COLORS.glowPrimary, opacity: 0.1,
   },
   headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, marginBottom: SPACING.md,
   },
   headerTitle: {
-    ...TYPOGRAPHY.hero,
-    color: COLORS.text,
-  },
-  daysLeftPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.overlayDark,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.lg,
-  },
-  redDot: {
-    width: 8,
-    height: 8,
-    backgroundColor: COLORS.error,
-    borderRadius: 4,
-    marginRight: SPACING.xs,
-  },
-  daysLeftText: {
-    ...TYPOGRAPHY.small,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
+    ...TYPOGRAPHY.hero, color: COLORS.white,
   },
   segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.overlayDark,
-    borderRadius: RADIUS.xl,
-    padding: 4,
-    marginBottom: SPACING.xl,
+    flexDirection: 'row', backgroundColor: COLORS.glassBackgroundLv1, borderRadius: RADIUS.xl, padding: 4, borderWidth: 1, borderColor: COLORS.glassBorder,
   },
   segmentButton: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.lg,
-    alignItems: 'center',
+    flex: 1, paddingVertical: SPACING.sm, borderRadius: RADIUS.lg, alignItems: 'center',
   },
   segmentButtonActive: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.glassHighlight, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   segmentText: {
-    ...TYPOGRAPHY.small,
-    fontWeight: '600',
-    color: COLORS.muted,
+    ...TYPOGRAPHY.small, fontWeight: '600', color: COLORS.mutedText,
   },
   segmentTextActive: {
-    color: COLORS.primary,
+    color: COLORS.white,
+  },
+  podiumWrapper: {
+    paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, zIndex: 10, marginTop: 25,
   },
   podiumContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    height: 180,
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', height: 210, width: '100%',
   },
   podiumItem: {
-    alignItems: 'center',
-    width: 80,
-    marginHorizontal: SPACING.sm,
+    alignItems: 'center', width: '30%', marginHorizontal: '1%',
   },
   podiumCenter: {
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xl + 15, zIndex: 5, transform: [{ scale: 1.15 }],
+  },
+  avatarGlow: {
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.8, shadowRadius: 10, marginBottom: SPACING.sm,
   },
   podiumAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.xs,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.glassBackgroundLv1, justifyContent: 'center', alignItems: 'center', borderWidth: 2,
   },
   podiumAvatarCenter: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    marginBottom: SPACING.sm,
+    width: 68, height: 68, borderRadius: 34, borderWidth: 3,
   },
   podiumAvatarText: {
-    ...TYPOGRAPHY.body,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.body, fontWeight: '800',
   },
   podiumAvatarTextCenter: {
-    ...TYPOGRAPHY.large,
+    ...TYPOGRAPHY.header,
   },
   podiumName: {
-    ...TYPOGRAPHY.bodyMuted,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 2,
+    ...TYPOGRAPHY.small, fontWeight: '800', color: COLORS.white, marginBottom: 2, textAlign: 'center',
   },
   podiumPoints: {
-    ...TYPOGRAPHY.small,
-    color: COLORS.muted,
-    marginBottom: SPACING.xs,
+    ...TYPOGRAPHY.badge, color: COLORS.mutedText, marginBottom: SPACING.md,
   },
   podiumBase: {
-    width: '100%',
-    backgroundColor: COLORS.overlayLight,
-    borderTopLeftRadius: RADIUS.sm,
-    borderTopRightRadius: RADIUS.sm,
-    alignItems: 'center',
-    paddingTop: SPACING.sm,
+    width: '100%', borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderTopLeftRadius: RADIUS.lg, borderTopRightRadius: RADIUS.lg, alignItems: 'center', paddingTop: SPACING.sm,
   },
-  podiumBaseCenter: {
-    height: 70,
-  },
-  podiumBaseSide: {
-    height: 50,
-  },
-  medalIcon: {
-    fontSize: 20,
-  },
+  podiumBaseCenter: { height: 80 },
+  podiumBaseSide: { height: 60 },
   listContainer: {
-    flex: 1,
-    backgroundColor: COLORS.backgroundSecondary,
-    marginTop: -SPACING.lg,
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
+    flex: 1, backgroundColor: 'rgba(11, 17, 33, 0.4)', borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: COLORS.glassBorder, borderBottomWidth: 0, overflow: 'hidden',
   },
   flatListContent: {
-    paddingTop: SPACING.xl,
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: 100,
+    paddingTop: SPACING.lg, paddingHorizontal: SPACING.lg, paddingBottom: 200, gap: SPACING.md,
   },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
+  listRowWrapper: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.glassBackgroundLv3, borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.glassBorder, overflow: 'hidden', position: 'relative',
+  },
+  listRowWrapperMe: {
+    backgroundColor: COLORS.glowPrimary, borderColor: COLORS.link, shadowColor: COLORS.link, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 4,
+  },
+  rowTopLight: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '40%',
   },
   listRank: {
-    width: 30,
-    ...TYPOGRAPHY.body,
-    fontWeight: 'bold',
-    color: COLORS.muted,
-    textAlign: 'center',
+    width: 36, ...TYPOGRAPHY.body, fontWeight: '800', color: COLORS.mutedText, textAlign: 'center',
   },
   listAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: SPACING.md,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.glassBackgroundLv2, justifyContent: 'center', alignItems: 'center', marginHorizontal: SPACING.md, borderWidth: 1, borderColor: COLORS.glassBorder,
   },
   listAvatarText: {
-    ...TYPOGRAPHY.body,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.body, fontWeight: '800', color: COLORS.white,
   },
-  listInfo: {
-    flex: 1,
-  },
-  listNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  listName: {
-    ...TYPOGRAPHY.body,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  listNameActive: {
-    color: COLORS.secondary,
-  },
+  listInfo: { flex: 1 },
+  listNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  listName: { ...TYPOGRAPHY.body, fontWeight: '700', color: COLORS.white },
   youBadge: {
-    backgroundColor: COLORS.secondary,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-    marginLeft: SPACING.xs,
+    backgroundColor: 'rgba(239, 68, 68, 0.4)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: SPACING.sm, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.6)',
   },
-  youBadgeText: {
-    ...TYPOGRAPHY.badge,
-    color: COLORS.white,
-    textTransform: 'uppercase',
+  youBadgeText: { ...TYPOGRAPHY.badge, color: COLORS.white, fontWeight: '800' },
+  listSubtext: { ...TYPOGRAPHY.small, color: COLORS.mutedText, fontWeight: '500' },
+  pointsBadge: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
   },
-  listSubtext: {
-    ...TYPOGRAPHY.small,
-    color: COLORS.muted,
-  },
-  listPoints: {
-    ...TYPOGRAPHY.cardTitle,
-    color: COLORS.secondary,
-  },
-  listPointsActive: {
-    color: COLORS.secondary,
-  },
+  listPoints: { ...TYPOGRAPHY.body, fontWeight: '800', color: COLORS.gold },
 });

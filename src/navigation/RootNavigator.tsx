@@ -4,10 +4,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import StudentTabs from './StudentTabs';
 import AdminTabs from './AdminTabs';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import ForceUpdateProfileScreen from '../screens/Student/ForceUpdateProfileScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
+  ForceUpdateProfile: undefined;
   StudentRoot: undefined;
   AdminRoot: undefined;
 };
@@ -29,12 +31,16 @@ export default function RootNavigator() {
   // Determine which screens to show based on auth state
   const isLoggedIn = firebaseUser && userProfile;
   const role = userProfile?.role;
+  const needsProfileUpdate = userProfile?.needsProfileUpdate;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!isLoggedIn ? (
         // Not logged in - show auth screen
         <Stack.Screen name="Auth" component={LoginScreen} />
+      ) : needsProfileUpdate ? (
+        // Needs Force Update
+        <Stack.Screen name="ForceUpdateProfile" component={ForceUpdateProfileScreen} />
       ) : role === 'admin' ? (
         // Admin user
         <Stack.Screen name="AdminRoot" component={AdminTabs} />

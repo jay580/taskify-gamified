@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Image, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme';
-import Header from '../../components/Header';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
 import ImageModal from '../../components/ImageModal';
 import FadeInView from '../../components/FadeInView';
+import Logo from '../../components/Logo';
 import { useNavigation } from '@react-navigation/native';
 import { useToast } from '../../contexts/ToastContext';
 import { observeTasks, Task } from '../../services/tasks';
@@ -17,6 +17,8 @@ import { observePendingSubmissions, approveSubmission, rejectSubmission, Submiss
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -37,6 +39,7 @@ export default function DashboardScreen() {
   const [isRejecting, setIsRejecting] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [customPoints, setCustomPoints] = useState(10);
 
   useEffect(() => {
     let tasksReady = false;
@@ -55,7 +58,6 @@ export default function DashboardScreen() {
     const unsubSubs = observePendingSubmissions((s) => { setPendingSubmissions(s); subsReady = true; checkLoading(); });
     const unsubLead = observeLeaderboard((l) => { setLeaderboard(l); leadReady = true; checkLoading(); });
 
-    // Fetch latest announcement
     const fetchAnnouncement = async () => {
       try {
         const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(1));
@@ -84,6 +86,7 @@ export default function DashboardScreen() {
     setRejectReason('');
     setIsRejecting(false);
     setImageError(false);
+    setCustomPoints(sub.type === 'self' ? 10 : (sub.pointsAwarded || 10));
     setVerificationModalVisible(true);
   };
 
@@ -96,7 +99,7 @@ export default function DashboardScreen() {
     if (!selectedSubmission) return;
     setIsActionLoading(true);
     try {
-      const points = selectedSubmission.pointsAwarded || 10;
+      const points = selectedSubmission.type === 'self' ? customPoints : (selectedSubmission.pointsAwarded || 10);
       await approveSubmission(selectedSubmission, points);
       showToast(`🔥 +${points} points awarded`, 'success');
       handleCloseVerification();
@@ -124,160 +127,186 @@ export default function DashboardScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={COLORS.accent} />
-        <Text style={{ marginTop: 10, color: COLORS.mutedText, fontWeight: '700' }}>Loading Dashboard...</Text>
-      </View>
+        <Text style={{ marginTop: 12, color: COLORS.mutedText, fontWeight: '700' }}>Loading Dashboard...</Text>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Header />
-      <ScreenWrapper>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          
-          {/* HERO SECTION */}
+    <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={styles.container}>
+      {/* Ambient glow */}
+      <View style={styles.topGlow} />
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <SafeAreaView edges={['top']}>
+          {/* Brand Header */}
+          <View style={styles.brandRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Logo size={36} />
+              <Text style={styles.brandTitle}>TASKIFY</Text>
+            </View>
+            <View style={styles.adminBadge}>
+              <MaterialCommunityIcons name="shield-account" size={14} color={COLORS.accent} />
+              <Text style={styles.adminBadgeText}>Admin</Text>
+            </View>
+          </View>
+
+          {/* Hero Card */}
           <FadeInView delay={0}>
-            <Card variant="hero" style={styles.heroCard}>
-              <View style={styles.heroOverlay} />
+            <View style={styles.heroCard}>
+              <LinearGradient
+                colors={['rgba(236, 201, 75, 0.12)', 'rgba(159, 122, 234, 0.08)', 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+              />
               <Text style={styles.heroGreeting}>Welcome back, Admin 👋</Text>
               <View style={styles.heroStatsRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.heroHighlightText}> {students.length} Total Students</Text>
+                  <Text style={styles.heroHighlightText}>{students.length} Students</Text>
                   <View style={styles.announcementContainer}>
-                     <MaterialCommunityIcons name="bullhorn" size={14} color={COLORS.accent} />
-                     <Text style={styles.heroSubText} numberOfLines={1}>{latestAnnouncement}</Text>
+                    <MaterialCommunityIcons name="bullhorn" size={14} color={COLORS.accent} />
+                    <Text style={styles.heroSubText} numberOfLines={1}>{latestAnnouncement}</Text>
                   </View>
                 </View>
                 <View style={styles.heroIconCircle}>
                   <MaterialCommunityIcons name="lightning-bolt" size={36} color={COLORS.accent} />
                 </View>
               </View>
-            </Card>
+            </View>
           </FadeInView>
 
-          {/* DASHBOARD STATS */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="account-group" size={28} color={COLORS.success} />
-              <Text style={styles.statValue}>{students.length}</Text>
-              <Text style={styles.statLabel}>Students</Text>
-            </View>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="check-decagram" size={28} color={COLORS.accent} />
-              <Text style={styles.statValue}>{activeTasks.length}</Text>
-              <Text style={styles.statLabel}>Tasks</Text>
-            </View>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="inbox-arrow-down" size={28} color={COLORS.secondary} />
-              <Text style={styles.statValue}>{pendingSubmissions.length}</Text>
-              <Text style={styles.statLabel}>Subs</Text>
-            </View>
-          </View>
-
-          {/* QUICK ACTIONS */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity activeOpacity={0.7} style={styles.actionBtn} onPress={() => navigation.navigate('Manage', { screen: 'Tasks' })}>
-              <View style={[styles.actionIconBg, { backgroundColor: COLORS.successLight }]}>
-                <MaterialCommunityIcons name="plus-thick" size={20} color={COLORS.success} />
+          {/* Stats Row */}
+          <FadeInView delay={80}>
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="account-group" size={26} color={COLORS.success} />
+                <Text style={styles.statValue}>{students.length}</Text>
+                <Text style={styles.statLabel}>Students</Text>
               </View>
-              <Text style={styles.actionText}>Add Task</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity activeOpacity={0.7} style={styles.actionBtn} onPress={() => navigation.navigate('Manage', { screen: 'Students' })}>
-              <View style={[styles.actionIconBg, { backgroundColor: '#E2E8F0' }]}>
-                <MaterialCommunityIcons name="account-plus" size={20} color={COLORS.primary} />
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="check-decagram" size={26} color={COLORS.accent} />
+                <Text style={styles.statValue}>{activeTasks.length}</Text>
+                <Text style={styles.statLabel}>Tasks</Text>
               </View>
-              <Text style={styles.actionText}>Add Student</Text>
-            </TouchableOpacity>
-          </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="inbox-arrow-down" size={26} color={COLORS.link} />
+                <Text style={styles.statValue}>{pendingSubmissions.length}</Text>
+                <Text style={styles.statLabel}>Pending</Text>
+              </View>
+            </View>
+          </FadeInView>
 
-          {/* VERIFICATION QUEUE */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Verification Queue</Text>
-            {pendingSubmissions.length === 0 ? (
-              <FadeInView delay={100}>
-                <View style={styles.emptyState}>
-                  <MaterialCommunityIcons name="check-all" size={56} color={COLORS.success} />
-                  <Text style={styles.emptyText}>No pending submissions </Text>
+          {/* Quick Actions */}
+          <FadeInView delay={150}>
+            <View style={styles.quickActions}>
+              <TouchableOpacity activeOpacity={0.7} style={styles.actionBtn} onPress={() => navigation.navigate('Manage', { screen: 'Tasks' })}>
+                <View style={[styles.actionIconBg, { backgroundColor: 'rgba(72, 187, 120, 0.15)' }]}>
+                  <MaterialCommunityIcons name="plus-thick" size={18} color={COLORS.success} />
                 </View>
-              </FadeInView>
-            ) : (
-              pendingSubmissions.map((sub, index) => (
-                <FadeInView key={sub.id || index.toString()} delay={index * 100}>
-                  <Card 
-                    style={[styles.submissionCard]} 
-                    onPress={() => {
-                      console.log("Card clicked: ", sub.id);
-                      handleOpenVerification(sub);
-                    }}
-                    activeOpacity={0.9}
-                  >
-                    <View style={[styles.subHeader]}>
-                      <View style={styles.subStudentInfo}>
-                        <View style={styles.avatarPlaceholder}>
-                          <MaterialCommunityIcons name="account" size={20} color={COLORS.white} />
-                        </View>
-                        <View>
-                          <Text style={styles.subStudentName}>{sub.studentId}</Text>
-                          <Text style={styles.subTaskTitle}>{sub.title}</Text>
-                        </View>
-                      </View>
-                      <Badge label="Pending" backgroundColor={COLORS.warning} textColor={COLORS.white} />
-                    </View>
-                    <View style={{ padding: SPACING.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                       <Text style={{color: COLORS.textSecondary, fontWeight: '600'}}>Tap to verify submission</Text>
-                       <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.muted} />
-                    </View>
-                  </Card>
-                </FadeInView>
-              ))
-            )}
-          </View>
-          
-          {/* LEADERBOARD PREVIEW */}
-          {leaderboard.length > 0 && (
-             <View style={[styles.section, { paddingBottom: 60 }]}>
-               <Text style={styles.sectionTitle}>Top Students</Text>
-               <Card style={{padding: 0, overflow: 'hidden'}}>
-                 {leaderboard.slice(0, 3).map((student, index) => (
-                   <FadeInView key={student.uid || index.toString()} delay={index * 150}>
-                     <View style={[styles.leaderboardRow, index !== Math.min(2, leaderboard.length -1) && {borderBottomWidth: 1, borderBottomColor: COLORS.border}]}>
-                       <Text style={styles.rankIcon}>{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</Text>
-                       <View style={styles.leadInfo}>
-                         <Text style={styles.leadName}>{student.name}</Text>
-                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                           <Text style={styles.leadRoom}>Room {student.room}</Text>
-                           {student.streakDays > 1 && (
-                              <View style={{flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(236, 201, 75, 0.1)', paddingHorizontal: 6, borderRadius: 8}}>
-                                 <MaterialCommunityIcons name="fire" size={12} color={COLORS.accent} />
-                                 <Text style={{color: COLORS.accent, fontSize: 10, fontWeight: '700', marginLeft: 2}}>{student.streakDays}</Text>
-                              </View>
-                           )}
-                         </View>
-                       </View>
-                       <Text style={styles.leadPoints}>{student.pointsThisMonth} pts</Text>
-                     </View>
-                   </FadeInView>
-                 ))}
-               </Card>
-             </View>
-          )}
+                <Text style={styles.actionText}>Add Task</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity activeOpacity={0.7} style={styles.actionBtn} onPress={() => navigation.navigate('Manage', { screen: 'Students' })}>
+                <View style={[styles.actionIconBg, { backgroundColor: 'rgba(159, 122, 234, 0.15)' }]}>
+                  <MaterialCommunityIcons name="account-plus" size={18} color={COLORS.link} />
+                </View>
+                <Text style={styles.actionText}>Add Student</Text>
+              </TouchableOpacity>
+            </View>
+          </FadeInView>
+        </SafeAreaView>
 
-        </ScrollView>
-      </ScreenWrapper>
+        {/* Verification Queue */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Verification Queue</Text>
+          {pendingSubmissions.length === 0 ? (
+            <FadeInView delay={100}>
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="check-all" size={48} color={COLORS.success} />
+                <Text style={styles.emptyText}>No pending submissions</Text>
+              </View>
+            </FadeInView>
+          ) : (
+            pendingSubmissions.map((sub, index) => (
+              <FadeInView key={sub.id || index.toString()} delay={index * 100}>
+                <Card 
+                  style={[styles.submissionCard]} 
+                  onPress={() => {
+                    handleOpenVerification(sub);
+                  }}
+                  activeOpacity={0.9}
+                >
+                  <View style={[styles.subHeader]}>
+                    <View style={styles.subStudentInfo}>
+                      <View style={styles.avatarPlaceholder}>
+                        <MaterialCommunityIcons name="account" size={20} color={COLORS.white} />
+                      </View>
+                      <View>
+                        <Text style={styles.subStudentName}>{sub.studentId}</Text>
+                        <Text style={styles.subTaskTitle}>{sub.title}</Text>
+                      </View>
+                    </View>
+                    <Badge label={sub.type === 'self' ? 'Self Task' : 'Pending'} backgroundColor={sub.type === 'self' ? COLORS.link : COLORS.warning} textColor={COLORS.white} />
+                  </View>
+                  <View style={{ padding: SPACING.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                     <Text style={{color: COLORS.textSecondary, fontWeight: '600'}}>Tap to verify submission</Text>
+                     <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.muted} />
+                  </View>
+                </Card>
+              </FadeInView>
+            ))
+          )}
+        </View>
+        
+        {/* Leaderboard Preview */}
+        {leaderboard.length > 0 && (
+           <View style={[styles.section, { paddingBottom: 100 }]}>
+             <Text style={styles.sectionTitle}>Top Students</Text>
+             <View style={styles.leaderboardCard}>
+               {leaderboard.slice(0, 3).map((student, index) => (
+                 <FadeInView key={student.uid || index.toString()} delay={index * 150}>
+                   <View style={[styles.leaderboardRow, index !== Math.min(2, leaderboard.length -1) && {borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder}]}>
+                     <Text style={styles.rankIcon}>{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</Text>
+                     <View style={styles.leadInfo}>
+                       <Text style={styles.leadName}>{student.name}</Text>
+                       <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                         <Text style={styles.leadRoom}>{student.teamName ? `Team ${student.teamName}` : ''}</Text>
+                         {student.streakDays > 1 && (
+                            <View style={styles.streakBadge}>
+                               <MaterialCommunityIcons name="fire" size={12} color={COLORS.accent} />
+                               <Text style={{color: COLORS.accent, fontSize: 10, fontWeight: '700', marginLeft: 2}}>{student.streakDays}</Text>
+                            </View>
+                         )}
+                       </View>
+                     </View>
+                     <Text style={styles.leadPoints}>{student.pointsThisMonth} pts</Text>
+                   </View>
+                 </FadeInView>
+               ))}
+             </View>
+           </View>
+        )}
+
+      </ScrollView>
 
       {/* Verification Modal */}
       <Modal visible={verificationModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleCloseVerification}>
         {selectedSubmission && (() => {
            const studentInfo = students.find(s => s.uid === selectedSubmission.studentId || s.studentId === selectedSubmission.studentId);
+           const submissionImages = Array.isArray(selectedSubmission.photoUrls)
+             ? selectedSubmission.photoUrls.filter(Boolean)
+             : selectedSubmission.photoUrl
+               ? [selectedSubmission.photoUrl]
+               : [];
            return (
-             <View style={styles.verifyModalContainer}>
+             <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={styles.verifyModalContainer}>
                {/* Modal Header */}
                <View style={styles.verifyHeader}>
                  <View style={{flex: 1}}>
-                   <Badge label="Pending Review" backgroundColor={COLORS.warning} textColor={COLORS.white} style={{alignSelf: 'flex-start', marginBottom: 8}} />
+                   <Badge label={selectedSubmission.type === 'self' ? 'Self Task Review' : 'Pending Review'} backgroundColor={selectedSubmission.type === 'self' ? COLORS.link : COLORS.warning} textColor={COLORS.white} style={{alignSelf: 'flex-start', marginBottom: 8}} />
                    <Text style={styles.verifyTitle}>{selectedSubmission.title}</Text>
                  </View>
                  <TouchableOpacity onPress={handleCloseVerification} style={styles.verifyCloseBtn}>
@@ -289,23 +318,23 @@ export default function DashboardScreen() {
                  
                  {/* Student Info Card */}
                  <Text style={styles.sectionTitle}>Submitted By</Text>
-                 <Card style={styles.verifyStudentCard}>
+                 <View style={styles.verifyStudentCard}>
                    <View style={styles.avatarPlaceholder}>
                      <MaterialCommunityIcons name="account" size={24} color={COLORS.white} />
                    </View>
                    <View style={{flex: 1}}>
                      <Text style={styles.subStudentName}>{studentInfo?.name || selectedSubmission.studentId}</Text>
-                     <Text style={styles.subTaskTitle}>Room {studentInfo?.room || "Unknown"}</Text>
+                     <Text style={styles.subTaskTitle}>{studentInfo?.teamName ? `Team ${studentInfo.teamName}` : 'No Team'}</Text>
                    </View>
                    <View style={{alignItems: 'flex-end'}}>
                      <Text style={{color: COLORS.mutedText, fontSize: 12, fontWeight: 'bold'}}>ID</Text>
                      <Text style={{color: COLORS.textDark, fontWeight: 'bold'}}>{studentInfo?.studentId || selectedSubmission.studentId}</Text>
                    </View>
-                 </Card>
+                 </View>
 
                  {/* Task Details */}
                  <Text style={styles.sectionTitle}>Task Details</Text>
-                 <Card style={styles.detailsCard}>
+                 <View style={styles.detailsCard}>
                    <View style={styles.detailRow}>
                       <MaterialCommunityIcons name="folder-outline" size={18} color={COLORS.muted} />
                       <Text style={styles.detailText}>Type: <Text style={{color: COLORS.textDark, fontWeight: 'bold'}}>{selectedSubmission.type === 'self' ? 'Self-Assigned' : 'Assigned Task'}</Text></Text>
@@ -315,17 +344,21 @@ export default function DashboardScreen() {
                       <Text style={styles.detailText}>Submitted: <Text style={{color: COLORS.textDark, fontWeight: 'bold'}}>{selectedSubmission.submittedAt?.toLocaleString() || "Just now"}</Text></Text>
                    </View>
                    <Text style={styles.subDesc}>{selectedSubmission.description}</Text>
-                 </Card>
+                 </View>
 
                  {/* Photo Section */}
                  <Text style={styles.sectionTitle}>Proof of Work</Text>
-                 {selectedSubmission.photoUrl && !imageError ? (
-                    <TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedImage(selectedSubmission.photoUrl)} style={styles.verifyImageContainer}>
-                      <Image source={{ uri: selectedSubmission.photoUrl }} style={styles.subImage} onError={() => setImageError(true)} />
-                      <View style={styles.imageOverlay}>
-                        <MaterialCommunityIcons name="magnify-plus-outline" size={24} color="#FFF" />
-                      </View>
-                    </TouchableOpacity>
+                 {submissionImages.length > 0 && !imageError ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: SPACING.sm }}>
+                      {submissionImages.map((uri, idx) => (
+                        <TouchableOpacity key={`${uri}-${idx}`} activeOpacity={0.9} onPress={() => setSelectedImage(uri)} style={[styles.verifyImageContainer, { marginRight: SPACING.md, width: 220 }]}>
+                          <Image source={{ uri }} style={styles.subImage} onError={() => setImageError(true)} />
+                          <View style={styles.imageOverlay}>
+                            <MaterialCommunityIcons name="magnify-plus-outline" size={24} color="#FFF" />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
                  ) : (
                     <View style={styles.verifyEmptyState}>
                        <MaterialCommunityIcons name="camera-off" size={32} color={COLORS.border} />
@@ -344,6 +377,24 @@ export default function DashboardScreen() {
                    <View style={styles.verifyEmptyState}>
                       <MaterialCommunityIcons name="text-box-remove-outline" size={24} color={COLORS.border} />
                       <Text style={{color: COLORS.muted, marginTop: 4, fontWeight: 'bold'}}>No notes provided</Text>
+                   </View>
+                 )}
+
+                 {/* Custom Points for Self Tasks */}
+                 {selectedSubmission.type === 'self' && !isRejecting && (
+                   <View style={{marginTop: SPACING.md}}>
+                     <Text style={styles.sectionTitle}>Award Points</Text>
+                     <View style={{flexDirection: 'row', gap: 10, marginBottom: SPACING.md}}>
+                       {[5, 10, 15, 20].map((val) => (
+                         <TouchableOpacity
+                           key={val}
+                           style={[styles.pointsBtn, customPoints === val && styles.pointsBtnActive]}
+                           onPress={() => setCustomPoints(val)}
+                         >
+                           <Text style={{color: customPoints === val ? COLORS.black : COLORS.textDark, fontWeight: '800', fontSize: 16}}>{val}</Text>
+                         </TouchableOpacity>
+                       ))}
+                     </View>
                    </View>
                  )}
 
@@ -377,7 +428,7 @@ export default function DashboardScreen() {
                    </>
                  )}
                </View>
-             </View>
+             </LinearGradient>
            );
         })()}
       </Modal>
@@ -389,289 +440,229 @@ export default function DashboardScreen() {
         onClose={() => setSelectedImage('')} 
       />
 
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.backgroundPrimary },
-  content: { paddingBottom: SPACING.xl * 2, paddingTop: SPACING.sm },
+  container: { flex: 1 },
+  topGlow: {
+    position: 'absolute',
+    top: -200,
+    right: -100,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: COLORS.glowPrimary,
+    opacity: 0.1,
+  },
+  content: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl * 2, paddingTop: SPACING.sm },
   
-  heroCard: {
-    marginBottom: SPACING.xl,
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(236, 201, 75, 0.05)', // Subtle yellow glow
-  },
-  heroGreeting: {
-    fontSize: 14,
-    color: COLORS.mutedText,
-    marginBottom: SPACING.sm,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  heroStatsRow: {
+  // Brand header
+  brandRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+    paddingHorizontal: SPACING.xs,
   },
-  heroHighlightText: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginBottom: 6,
+  brandTitle: {
+    color: COLORS.white,
+    fontWeight: '900',
+    fontSize: 20,
+    marginLeft: 12,
+    letterSpacing: 3,
   },
-  announcementContainer: {
+  adminBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.glassBackgroundLv2,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
     gap: 6,
   },
-  heroSubText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    fontStyle: 'italic',
+  adminBadgeText: {
+    color: COLORS.accent,
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 1,
   },
+
+  // Hero
+  heroCard: {
+    backgroundColor: COLORS.glassBackgroundLv1,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    marginBottom: SPACING.xl,
+    overflow: 'hidden',
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  heroGreeting: { fontSize: 13, color: COLORS.mutedText, marginBottom: SPACING.sm, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 2 },
+  heroStatsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroHighlightText: { fontSize: 28, fontWeight: '900', color: COLORS.white, marginBottom: 6, letterSpacing: 0.5 },
+  announcementContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroSubText: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '600', fontStyle: 'italic' },
   heroIconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(236, 201, 75, 0.15)',
+    backgroundColor: 'rgba(236, 201, 75, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(236, 201, 75, 0.3)',
+    borderColor: 'rgba(236, 201, 75, 0.25)',
   },
 
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xl,
-    gap: SPACING.md,
-  },
+  // Stats
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xl, gap: SPACING.md },
   statCard: {
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: COLORS.glassBackgroundLv2,
     paddingVertical: SPACING.lg,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.surfaceAlt,
-    shadowColor: COLORS.black,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    borderColor: COLORS.glassBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.mutedText,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-
-  quickActions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.xl,
-  },
+  statValue: { fontSize: 24, fontWeight: '900', color: COLORS.white, marginTop: 8 },
+  statLabel: { fontSize: 11, color: COLORS.mutedText, fontWeight: '800', textTransform: 'uppercase', marginTop: 2, letterSpacing: 0.5 },
+  
+  // Quick actions
+  quickActions: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl },
   actionBtn: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBackgroundLv2,
     padding: SPACING.md,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
+    borderColor: COLORS.glassBorder,
+    gap: 10,
   },
-  actionIconBg: {
-    padding: 8,
-    borderRadius: 12,
-  },
-  actionText: {
-    fontWeight: '800',
-    color: COLORS.textDark,
-    fontSize: 16,
-  },
-
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginBottom: SPACING.md,
-    letterSpacing: 0.5,
-  },
-  section: {
-    marginBottom: SPACING.lg,
-  },
+  actionIconBg: { padding: 8, borderRadius: 12 },
+  actionText: { fontWeight: '800', color: COLORS.white, fontSize: 15 },
   
+  // Sections
+  sectionTitle: { fontSize: 20, fontWeight: '900', color: COLORS.white, marginBottom: SPACING.md, letterSpacing: 0.5 },
+  section: { marginBottom: SPACING.lg },
   emptyState: {
     padding: SPACING.xl * 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: RADIUS.lg,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.glassBackgroundLv3,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
     borderStyle: 'dashed',
   },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: SPACING.md,
-  },
-
-  submissionCard: {
-    padding: 0, 
-    overflow: 'hidden',
-  },
+  emptyText: { color: COLORS.textSecondary, fontSize: 16, fontWeight: '700', marginTop: SPACING.md },
+  
+  // Submissions
+  submissionCard: { padding: 0, overflow: 'hidden' },
   subHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     padding: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.backgroundPrimary,
-    backgroundColor: COLORS.surfaceAlt,
+    borderBottomColor: COLORS.glassBorder,
+    backgroundColor: COLORS.glassBackgroundLv3,
   },
-  subStudentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
+  subStudentInfo: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   avatarPlaceholder: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: COLORS.glassBackgroundLv1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
   },
-  subStudentName: {
-    fontSize: 13,
-    color: COLORS.accent,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  subTaskTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textDark,
-  },
-
-  subDesc: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.md,
-    lineHeight: 22,
-  },
+  subStudentName: { fontSize: 13, color: COLORS.accent, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  subTaskTitle: { fontSize: 17, fontWeight: '800', color: COLORS.white },
+  subDesc: { color: COLORS.textSecondary, fontSize: 15, padding: SPACING.lg, paddingBottom: SPACING.md, lineHeight: 22 },
   notesContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(236, 201, 75, 0.05)',
+    backgroundColor: 'rgba(236, 201, 75, 0.06)',
     marginHorizontal: SPACING.lg,
     padding: SPACING.md,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.md,
     borderLeftWidth: 3,
     borderLeftColor: COLORS.accent,
     gap: 8,
     marginBottom: SPACING.lg,
   },
-  subNotes: {
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-    flex: 1,
-    fontWeight: '600',
-  },
-  imageContainer: {
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-  },
-  subImage: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#000',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 10,
-    borderRadius: 20,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: SPACING.lg,
-    padding: SPACING.lg,
-    paddingTop: 0,
-  },
+  subNotes: { color: COLORS.textSecondary, fontStyle: 'italic', flex: 1, fontWeight: '600' },
+  subImage: { width: '100%', height: 200, backgroundColor: '#000' },
+  imageOverlay: { position: 'absolute', right: 12, bottom: 12, backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, borderRadius: 20 },
   
-  leaderboardRow: {
+  // Leaderboard
+  leaderboardCard: {
+    backgroundColor: COLORS.glassBackgroundLv2,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  leaderboardRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.lg, gap: SPACING.md },
+  rankIcon: { fontSize: 24 },
+  leadInfo: { flex: 1 },
+  leadName: { fontSize: 16, fontWeight: '800', color: COLORS.white },
+  leadRoom: { fontSize: 13, color: COLORS.mutedText, fontWeight: '600' },
+  leadPoints: { fontSize: 18, fontWeight: '800', color: COLORS.accent },
+  streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    gap: SPACING.md,
+    backgroundColor: 'rgba(236, 201, 75, 0.1)',
+    paddingHorizontal: 6,
+    borderRadius: 8,
   },
-  rankIcon: {
-    fontSize: 24,
-  },
-  leadInfo: {
+
+  // Points buttons in modal
+  pointsBtn: {
     flex: 1,
-  },
-  leadName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.textDark,
-  },
-  leadRoom: {
-    fontSize: 13,
-    color: COLORS.mutedText,
-    fontWeight: '600',
-  },
-  leadPoints: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.accent,
-  },
-  
-  modalBg: {
-    flex: 1,
-    backgroundColor: COLORS.overlayDark,
-    justifyContent: 'center',
-    padding: SPACING.lg,
-  },
-  modalCard: {
-    backgroundColor: COLORS.surfaceAlt,
-    padding: SPACING.xl,
-    borderRadius: RADIUS.lg,
+    padding: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  input: {
-    backgroundColor: COLORS.backgroundPrimary,
-    color: COLORS.textDark,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
     borderRadius: RADIUS.md,
+    alignItems: 'center' as const,
+    backgroundColor: COLORS.glassBackgroundLv2,
+  },
+  pointsBtnActive: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+
+  // Verify modal
+  input: {
+    backgroundColor: COLORS.glassBackgroundLv2,
+    color: COLORS.textDark,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: RADIUS.lg,
     padding: SPACING.md,
     paddingTop: SPACING.md,
     minHeight: 120,
@@ -679,50 +670,43 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     fontSize: 16,
   },
-
-  verifyModalContainer: {
-    flex: 1,
-    backgroundColor: COLORS.backgroundPrimary,
-  },
+  verifyModalContainer: { flex: 1 },
   verifyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.xl,
     paddingBottom: SPACING.md,
-    backgroundColor: COLORS.surfaceAlt,
+    backgroundColor: COLORS.glassBackgroundLv1,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.glassBorder,
   },
-  verifyTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.textDark,
-  },
+  verifyTitle: { fontSize: 22, fontWeight: '800', color: COLORS.white },
   verifyCloseBtn: {
     padding: SPACING.sm,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBackgroundLv2,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
   },
-  verifyScroll: {
-    padding: SPACING.lg,
-    paddingBottom: 100,
-  },
+  verifyScroll: { padding: SPACING.lg, paddingBottom: 100 },
   verifyStudentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
     marginBottom: SPACING.xl,
     gap: SPACING.md,
-    backgroundColor: 'rgba(56, 161, 105, 0.05)',
+    backgroundColor: 'rgba(72, 187, 120, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(56, 161, 105, 0.2)',
+    borderColor: 'rgba(72, 187, 120, 0.2)',
+    borderRadius: RADIUS.lg,
   },
   detailsCard: {
     padding: SPACING.md,
     marginBottom: SPACING.xl,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBackgroundLv2,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
   },
   detailRow: {
     flexDirection: 'row',
@@ -731,44 +715,42 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.sm,
     marginBottom: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.backgroundPrimary,
+    borderBottomColor: COLORS.glassBorder,
   },
-  detailText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
+  detailText: { color: COLORS.textSecondary, fontSize: 14 },
   verifyImageContainer: {
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
     marginBottom: SPACING.xl,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
   },
   verifyEmptyState: {
     padding: SPACING.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.glassBackgroundLv3,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
     marginBottom: SPACING.xl,
   },
   verifyFooter: {
     position: 'absolute',
     bottom: 0,
-    left: 0, right: 0,
-    backgroundColor: COLORS.surfaceAlt,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.glassBackgroundLv1,
     flexDirection: 'row',
     padding: SPACING.lg,
-    paddingBottom: SPACING.xl, // Safe area lift
+    paddingBottom: SPACING.xl,
     gap: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: COLORS.glassBorder,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  }
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+  },
 });

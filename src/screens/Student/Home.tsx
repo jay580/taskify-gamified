@@ -1,30 +1,40 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
-  Alert,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import { useAuth } from '../../contexts/AuthContext';
+import { useUser } from '../../hooks/useUser';
 import {
   getAvailableTasks,
   getAppSettings,
   getLeaderboard,
 } from '../../services/firestore';
 import type { Task, AppSettings } from '../../types';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '../../theme';
+import { AppAvatar } from '../../components/Avatar';
+import Logo from '../../components/Logo';
+import FadeInView from '../../components/FadeInView';
+import TaskCard from '../../components/TaskCard';
+import SectionContainer from '../../components/SectionContainer';
+import Card from '../../components/Card';
+import { getTaskStatus, getTaskStatusLabel } from '../../utils/taskStatus';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { userProfile, refreshProfile } = useAuth();
+  const user = useUser();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -39,10 +49,9 @@ export default function HomeScreen() {
         getAppSettings(),
         getLeaderboard(),
       ]);
-      setTasks(taskList.slice(0, 3)); // Show top 3 as daily quests
+      setTasks(taskList);
       setSettings(appSettings);
 
-      // Find current user's rank
       if (userProfile) {
         const idx = leaderboard.findIndex((e) => e.uid === userProfile.uid);
         setRank(idx >= 0 ? idx + 1 : 0);
@@ -64,227 +73,258 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [loadData, refreshProfile]);
 
-  const formatDeadline = (iso: string | null) => {
-    if (!iso) return 'No deadline';
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMs = d.getTime() - now.getTime();
-    const diffH = Math.round(diffMs / 3600000);
-    if (diffH < 0) return 'Expired';
-    if (diffH < 24) return `${diffH}h left`;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
+  // Derive specialized lists without arbitrary slicing
+  const featuredTasks = useMemo(() => {
+    return tasks.filter(t => t.points >= 50 || (t as any).isFeatured);
+  }, [tasks]);
 
-  const getCategoryColor = (cat: string) => {
-    switch (cat) {
-      case 'Academic': return COLORS.link;
-      case 'Domestic': return COLORS.success;
-      case 'Sports': return COLORS.warning;
-      case 'Special': return COLORS.secondary;
-      default: return COLORS.secondary;
-    }
-  };
+  const endingSoonTasks = useMemo(() => {
+    return tasks.filter(t => {
+      const st = getTaskStatus({
+        createdAt: t.createdAt,
+        duration: t.duration,
+        durationType: t.durationType,
+      });
+      if (st !== 'active') return false;
+      
+      if (t.duration && t.durationType) {
+        const cDate = new Date(t.createdAt).getTime();
+        const dTypeMap: any = { hours: 3600000, days: 86400000, weeks: 604800000 };
+        const dMs = t.duration * (dTypeMap[t.durationType] || 0);
+        const endsAt = cDate + dMs;
+        const remaining = endsAt - Date.now();
+        // Return true if remaining is less than or equal to 24 hours (86400000 ms)
+        return remaining > 0 && remaining <= 86400000;
+      }
+      return false;
+    });
+  }, [tasks]);
+
+  const CATEGORIES = [
+    { name: 'Academic', icon: 'book-open-page-variant', color: COLORS.link },
+    { name: 'Domestic', icon: 'home-variant-outline', color: COLORS.success },
+    { name: 'Sports', icon: 'basketball', color: COLORS.warning },
+    { name: 'Special', icon: 'star-shooting-outline', color: COLORS.secondary },
+  ];
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={COLORS.secondary} />
-      </View>
+      </LinearGradient>
     );
   }
 
-  const displayName = userProfile?.name ?? 'Student';
-  const points = userProfile?.pointsThisMonth ?? 0;
-  const streak = userProfile?.streakDays ?? 0;
+  const displayUser = user || userProfile;
+  const displayName = displayUser?.name ?? 'Student';
+  const points = displayUser?.pointsThisMonth ?? 0;
+  const streak = displayUser?.streakDays ?? 0;
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={styles.container}>
+      {/* Top Background Glow */}
+      <View style={styles.topGlow} />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.white} />}
       >
-        {/* TOP PURPLE HEADER SECTION */}
-        <View style={styles.headerBackground}>
-          <SafeAreaView edges={['top']}>
-            {/* Profile Info */}
-            <View style={styles.profileRow}>
-              <View style={styles.avatarContainer}>
-                <Image
-                  source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png' }}
-                  style={styles.avatar}
-                />
-              </View>
-              <View style={styles.profileTextContainer}>
-                <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.nameText}>{displayName}</Text>
-              </View>
-              <View style={styles.iconButtonsRow}>
-                <TouchableOpacity style={styles.iconButton}>
-                  <MaterialCommunityIcons name="magnify" size={24} color={COLORS.white} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton}>
-                  <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.white} />
-                  <View style={styles.notificationBadge} />
-                </TouchableOpacity>
-              </View>
-            </View>
+        <SafeAreaView edges={['top']} style={styles.headerArea}>
+          {/* App Brand Header */}
+          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xl, paddingHorizontal: SPACING.sm}}>
+             <Logo size={36} />
+             <Text style={{color: COLORS.white, fontWeight: '900', fontSize: 20, marginLeft: 12, letterSpacing: 3}}>TASKIFY</Text>
+          </View>
 
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="trophy-outline" size={28} color={COLORS.accent} />
+          {/* Profile Row */}
+          <View style={[styles.profileRow, { marginBottom: SPACING.xl }]}>
+            <View style={styles.avatarContainer}>
+              <AppAvatar user={displayUser} size={50} />
+            </View>
+            <View style={styles.profileTextContainer}>
+              <Text style={styles.welcomeText}>Hello,</Text>
+              <Text style={styles.nameText}>{displayName}</Text>
+            </View>
+          </View>
+
+          {/* User Stats Glass Panel */}
+          <FadeInView delay={100} style={{ marginBottom: SPACING.md }}>
+            <TouchableOpacity style={styles.statsPanel} onPress={() => navigation.navigate('ProfileTab')} activeOpacity={0.8}>
+              <LinearGradient
+                colors={[COLORS.gradientCardTop, COLORS.gradientCardBottom]}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={styles.statItem}>
                 <Text style={styles.statLabel}>Rank</Text>
-                <Text style={styles.statValue}>#{rank || '-'}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="star-outline" size={28} color={COLORS.gold} />
-                <Text style={styles.statLabel}>Points</Text>
-                <Text style={styles.statValue}>{points}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="trending-up" size={28} color={COLORS.success} />
-                <Text style={styles.statLabel}>Streak</Text>
-                <Text style={styles.statValue}>{streak}d</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionTitleDark}>Daily Quests</Text>
-          </SafeAreaView>
-        </View>
-
-        {/* DAILY QUESTS LIST */}
-        <View style={styles.questsContainer}>
-          {tasks.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No quests available right now</Text>
-            </View>
-          ) : (
-            tasks.map((quest) => {
-              const color = getCategoryColor(quest.category);
-              const timeText = formatDeadline(quest.deadline);
-              const isExpired = timeText === 'Expired';
-              return (
-                <View key={quest.id} style={styles.questCard}>
-                  <View style={[styles.questIconBox, { backgroundColor: COLORS.surfaceAlt }]}>
-                    <MaterialCommunityIcons
-                      name={isExpired ? 'check-circle-outline' : 'clock-outline'}
-                      size={28}
-                      color={isExpired ? COLORS.success : color}
-                    />
-                  </View>
-                  <View style={styles.questInfo}>
-                    <Text style={styles.questTitle}>{quest.title}</Text>
-                    <View style={styles.questTagsRow}>
-                      <View style={styles.questTag}>
-                        <Text style={styles.questTagText}>{quest.category}</Text>
-                      </View>
-                      <Text style={styles.questTimeText}>• {timeText}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.questPointsBox}>
-                    <Text style={styles.pointsPlus}>+{quest.points}</Text>
-                    <Text style={styles.pointsLabel}>POINTS</Text>
-                  </View>
+                <View style={styles.statValueRow}>
+                  <MaterialCommunityIcons name="trophy" size={16} color={COLORS.accent} />
+                  <Text style={styles.statValue}>#{rank || '-'}</Text>
                 </View>
-              );
-            })
-          )}
-        </View>
-
-        {/* REWARD OF THE MONTH */}
-        {settings && (
-          <View style={styles.rewardContainer}>
-            <View style={styles.rewardCard}>
-              <View style={styles.rewardHeader}>
-                <MaterialCommunityIcons name="gift-outline" size={20} color={COLORS.white} />
-                <Text style={styles.rewardTitleText}>REWARDS THIS MONTH</Text>
               </View>
-              <Text style={styles.rewardMainTitle}>🥇 {settings.reward1st}</Text>
-              <Text style={styles.rewardSubtext}>🥈 {settings.reward2nd} • 🥉 {settings.reward3rd}</Text>
-              <TouchableOpacity
-                style={styles.rewardButton}
-                onPress={() => navigation.navigate('Rank')}
-              >
-                <Text style={styles.rewardButtonText}>Check Leaderboard</Text>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Points</Text>
+                <View style={styles.statValueRow}>
+                  <MaterialCommunityIcons name="star" size={16} color={COLORS.gold} />
+                  <Text style={styles.statValue}>{points}</Text>
+                </View>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Streak</Text>
+                <View style={styles.statValueRow}>
+                  <MaterialCommunityIcons name="fire" size={16} color={COLORS.error} />
+                  <Text style={styles.statValue}>{streak}d</Text>
+                </View>
+              </View>
               </TouchableOpacity>
-            </View>
-          </View>
-        )}
+          </FadeInView>
+        </SafeAreaView>
 
-        {/* ANNOUNCEMENT */}
+        {/* Announcement Card */}
         {settings?.announcement && (
-          <View style={styles.announcementContainer}>
-            <View style={styles.announcementCard}>
-              <MaterialCommunityIcons name="bullhorn-outline" size={24} color={COLORS.link} />
-              <Text style={styles.announcementText}>{settings.announcement}</Text>
+          <FadeInView delay={150}>
+            <View style={styles.announcementWrapper}>
+              <LinearGradient
+                colors={['rgba(99, 102, 241, 0.4)', 'rgba(236, 72, 153, 0.4)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.announcementCard}
+              >
+                <MaterialCommunityIcons name="bullhorn-variant" size={24} color={COLORS.white} style={{marginTop: 2}} />
+                <View style={styles.announcementTextCol}>
+                  <Text style={styles.announcementTitle}>Announcement</Text>
+                  <Text style={styles.announcementText}>{settings.announcement}</Text>
+                </View>
+              </LinearGradient>
             </View>
-          </View>
+          </FadeInView>
         )}
 
-        {/* Spacer for bottom tab bar */}
-        <View style={{ height: 100 }} />
+        {/* Featured Quests */}
+        <FadeInView delay={200}>
+          <SectionContainer title="Featured Quests" icon="star-circle" iconColor={COLORS.gold} actionText="View All" onActionPress={() => navigation.navigate('Quests')} horizontal>
+            {featuredTasks.length > 0 ? (
+              featuredTasks.map((task) => (
+                <View key={task.id} style={{ width: 300 }}>
+                  <TaskCard
+                    title={task.title}
+                    category={task.category}
+                    timeText={getTaskStatusLabel({ createdAt: task.createdAt, duration: task.duration, durationType: task.durationType }) || ''}
+                    points={task.points}
+                    onPress={() => navigation.navigate('Quests')}
+                  />
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No featured quests right now.</Text>
+            )}
+          </SectionContainer>
+        </FadeInView>
+
+        {/* Ending Soon */}
+        <FadeInView delay={300}>
+          <SectionContainer title="Ending Soon" icon="clock-fast" iconColor={COLORS.secondary} horizontal>
+            {endingSoonTasks.length > 0 ? (
+              endingSoonTasks.map((task) => (
+                <View key={task.id} style={{ width: 280 }}>
+                  <TaskCard
+                    title={task.title}
+                    category={task.category}
+                    timeText={getTaskStatusLabel({ createdAt: task.createdAt, duration: task.duration, durationType: task.durationType }) || ''}
+                    points={task.points}
+                    isExpired={false}
+                    style={{ borderColor: 'rgba(229, 62, 62, 0.3)' }} // Urgent border hint
+                    onPress={() => navigation.navigate('Quests')}
+                  />
+                </View>
+              ))
+            ) : (
+              <Text style={[styles.emptyText, { marginBottom: SPACING.lg, paddingHorizontal: SPACING.lg }]}>Nothing expiring soon!</Text>
+            )}
+          </SectionContainer>
+        </FadeInView>
+
+        <FadeInView delay={400}>
+          <SectionContainer title="Explore Categories" icon="compass-outline" iconColor={COLORS.link} horizontal>
+            {CATEGORIES.map((cat, idx) => (
+              <TouchableOpacity key={idx} style={styles.categoryCard} onPress={() => navigation.navigate('Quests', { screen: 'TasksList', params: { category: cat.name } })}>
+                <LinearGradient
+                  colors={[`${cat.color}20`, `${cat.color}05`]}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <MaterialCommunityIcons name={cat.icon as any} size={28} color={cat.color} />
+                <Text style={styles.categoryName}>{cat.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </SectionContainer>
+        </FadeInView>
+
+        {/* Bottom Spacing for Tab Bar */}
+        <View style={{ height: 120 }} />
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.backgroundPrimary,
+  },
+  topGlow: {
+    position: 'absolute',
+    top: -250,
+    left: -150,
+    width: 600,
+    height: 600,
+    borderRadius: 300,
+    backgroundColor: COLORS.glowPrimary,
+    opacity: 0.12,
   },
   scrollContent: {
     flexGrow: 1,
   },
-  headerBackground: {
-    backgroundColor: COLORS.surface,
-    borderBottomLeftRadius: RADIUS.xl,
-    borderBottomRightRadius: RADIUS.xl,
+  headerArea: {
     paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.lg,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SPACING.xl,
-    marginTop: SPACING.lg,
   },
   avatarContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.border,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    borderColor: COLORS.glassBorder,
+    borderRadius: 30,
+    overflow: 'hidden',
   },
   profileTextContainer: {
     flex: 1,
     marginLeft: SPACING.md,
   },
   welcomeText: {
-    ...TYPOGRAPHY.bodyMuted,
-    color: COLORS.muted,
+    ...TYPOGRAPHY.small,
+    color: COLORS.mutedText,
+    marginBottom: 2,
   },
   nameText: {
-    ...TYPOGRAPHY.large,
-    color: COLORS.text,
+    ...TYPOGRAPHY.header,
+    fontSize: 22,
+    color: COLORS.white,
   },
   iconButtonsRow: {
     flexDirection: 'row',
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.overlayLight,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.glassBackgroundLv2,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: SPACING.sm,
@@ -298,166 +338,90 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: COLORS.error,
   },
-  statsRow: {
+  statsPanel: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xl,
+    backgroundColor: COLORS.glassBackgroundLv2,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    overflow: 'hidden',
   },
-  statCard: {
-    backgroundColor: COLORS.overlayLight,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+  statItem: {
+    flex: 1,
+    paddingVertical: SPACING.md,
     alignItems: 'center',
-    width: '31%',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: COLORS.glassBorder,
+    marginVertical: SPACING.sm,
   },
   statLabel: {
     ...TYPOGRAPHY.small,
-    color: COLORS.muted,
-    marginTop: SPACING.xs,
+    color: COLORS.mutedText,
     marginBottom: 4,
   },
-  statValue: {
-    ...TYPOGRAPHY.large,
-    color: COLORS.text,
-  },
-  sectionTitleDark: {
-    ...TYPOGRAPHY.large,
-    color: COLORS.text,
-    marginTop: SPACING.sm,
-  },
-  questsContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-  },
-  emptyCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.xl,
+  statValueRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    gap: 4,
+  },
+  statValue: {
+    ...TYPOGRAPHY.body,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  announcementWrapper: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+  announcementCard: {
+    flexDirection: 'row',
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: COLORS.link,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  announcementTextCol: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  announcementTitle: {
+    ...TYPOGRAPHY.small,
+    fontWeight: 'bold',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 2,
+    letterSpacing: 1,
+  },
+  announcementText: {
+    ...TYPOGRAPHY.body,
+    fontWeight: '600',
+    color: COLORS.white,
+    lineHeight: 22,
+  },
+  categoryCard: {
+    width: 110,
+    height: 110,
+    borderRadius: RADIUS.xl,
+    backgroundColor: COLORS.glassBackgroundLv3,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    gap: SPACING.sm,
+  },
+  categoryName: {
+    ...TYPOGRAPHY.small,
+    fontWeight: '600',
+    color: COLORS.white,
   },
   emptyText: {
     ...TYPOGRAPHY.body,
-    color: COLORS.muted,
-  },
-  questCard: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    alignItems: 'center',
-    ...SHADOWS.card,
-  },
-  questIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  questInfo: {
-    flex: 1,
-  },
-  questTitle: {
-    ...TYPOGRAPHY.body,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  questTagsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  questTag: {
-    backgroundColor: COLORS.surfaceAlt,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 3,
-    borderRadius: RADIUS.sm,
-  },
-  questTagText: {
-    ...TYPOGRAPHY.small,
-    color: COLORS.muted,
-  },
-  questTimeText: {
-    ...TYPOGRAPHY.small,
     color: COLORS.mutedText,
-    marginLeft: SPACING.xs,
-  },
-  questPointsBox: {
-    alignItems: 'flex-end',
-  },
-  pointsPlus: {
-    ...TYPOGRAPHY.cardTitle,
-    color: COLORS.secondary,
-  },
-  pointsLabel: {
-    ...TYPOGRAPHY.badge,
-    color: COLORS.muted,
-    marginTop: 2,
-  },
-  rewardContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.xl,
-  },
-  rewardCard: {
-    backgroundColor: COLORS.secondary,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-  },
-  rewardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  rewardTitleText: {
-    ...TYPOGRAPHY.small,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginLeft: SPACING.xs,
-    letterSpacing: 1,
-  },
-  rewardMainTitle: {
-    ...TYPOGRAPHY.header,
-    color: COLORS.white,
-    marginBottom: SPACING.sm,
-  },
-  rewardSubtext: {
-    ...TYPOGRAPHY.bodyMuted,
-    color: COLORS.accentLight,
-    lineHeight: 20,
-    marginBottom: SPACING.lg,
-  },
-  rewardButton: {
-    backgroundColor: COLORS.white,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.xl,
-    alignSelf: 'flex-start',
-  },
-  rewardButtonText: {
-    ...TYPOGRAPHY.bodyMuted,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-  },
-  announcementContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  announcementCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  announcementText: {
-    flex: 1,
-    marginLeft: SPACING.sm,
-    ...TYPOGRAPHY.bodyMuted,
-    color: COLORS.link,
-    lineHeight: 20,
   },
 });

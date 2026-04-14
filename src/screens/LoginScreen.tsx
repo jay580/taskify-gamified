@@ -13,6 +13,7 @@ import { TextInput, Button } from 'react-native-paper';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
 import { sendPasswordReset } from '../services/auth';
+import Logo from '../components/Logo';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -69,6 +70,7 @@ export default function LoginScreen() {
       >
         <View style={styles.content}>
           <View style={styles.headerContainer}>
+            <Logo size={100} style={{ alignSelf: 'flex-start', marginBottom: SPACING.md }} />
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to continue to TASKIFY</Text>
           </View>

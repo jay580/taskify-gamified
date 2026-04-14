@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 
-const getInitials = (name?: string) => {
-  if (!name) return "?";
-  const parts = name.trim().split(" ").filter(Boolean);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-};
+interface AvatarProps {
+  user?: any;
+  size?: number;
+}
 
-export const Avatar = ({ user, size = 40 }: { user?: any; size?: number }) => {
+export const AppAvatar = ({ user, size = 40 }: AvatarProps) => {
   const [imageError, setImageError] = useState(false);
+  
+  const getInitials = (name?: string) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  };
+
   const initials = getInitials(user?.name);
 
   if (user?.profileImage && !imageError) {
@@ -29,18 +35,30 @@ export const Avatar = ({ user, size = 40 }: { user?: any; size?: number }) => {
 
   return (
     <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: '#2D3748',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={[
+        styles.fallback,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+        },
+      ]}
     >
-      <Text style={{ color: '#ECC94B', fontWeight: 'bold', fontSize: size * 0.4 }}>
+      <Text style={[styles.initials, { fontSize: size * 0.4 }]}>
         {initials}
       </Text>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  fallback: {
+    backgroundColor: '#2D3748',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initials: {
+    color: '#ECC94B',
+    fontWeight: 'bold',
+  },
+});

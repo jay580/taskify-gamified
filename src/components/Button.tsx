@@ -1,20 +1,20 @@
 import React, { useRef } from "react";
-import { Pressable, Text, Animated, Easing } from "react-native";
+import { Pressable, Text, Animated, ActivityIndicator } from "react-native";
 import { COLORS, RADIUS, SPACING } from "../theme";
 
-export default function Button({ title, onPress, variant = "primary", style }: any) {
+export default function Button({ title, onPress, variant = "primary", style, disabled, loading }: any) {
   const isPrimary = variant === "primary";
   const isDanger = variant === "danger";
   const isSecondary = variant === "secondary";
   
-  let bg = COLORS.primary;
-  if (!isPrimary) bg = COLORS.surfaceAlt;
+  let bg = isPrimary ? COLORS.accent : COLORS.glassBackgroundLv2;
   if (isDanger) bg = COLORS.error;
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
+    if (disabled) return;
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 0.97,
@@ -47,33 +47,36 @@ export default function Button({ title, onPress, variant = "primary", style }: a
   };
 
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }], opacity: opacityAnim }, style]}>
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }], opacity: disabled ? 0.5 : opacityAnim }, style]}>
       <Pressable
-        onPress={onPress}
+        onPress={disabled ? undefined : onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={({ pressed }) => [{
           backgroundColor: bg,
           padding: SPACING.md,
-          borderRadius: RADIUS.md,
+          borderRadius: RADIUS.lg,
           alignItems: "center",
           justifyContent: "center",
           width: "100%",
-          shadowColor: isPrimary ? COLORS.black : 'transparent',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 5,
-          elevation: isPrimary ? 4 : 0,
-          borderWidth: (!isPrimary && !isDanger) ? 1 : 0,
-          borderColor: COLORS.border,
+          flexDirection: 'row',
+          gap: 8,
+          shadowColor: isPrimary ? COLORS.accent : (isDanger ? COLORS.error : 'transparent'),
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: isPrimary ? 0.35 : (isDanger ? 0.25 : 0),
+          shadowRadius: 10,
+          elevation: isPrimary ? 6 : (isDanger ? 4 : 0),
+          borderWidth: isSecondary ? 1 : 0,
+          borderColor: COLORS.glassBorder,
         }]}
       >
+        {loading && <ActivityIndicator size="small" color={isPrimary ? COLORS.black : COLORS.white} />}
         <Text style={{ 
-          color: isPrimary || isDanger ? COLORS.white : COLORS.textDark, 
+          color: isPrimary ? COLORS.black : (isDanger ? COLORS.white : COLORS.textDark), 
           fontWeight: "800",
           letterSpacing: 0.5,
           textTransform: "uppercase",
-          fontSize: 14
+          fontSize: 14,
         }}>
           {title}
         </Text>

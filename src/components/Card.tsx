@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { View, Animated, Easing, Pressable } from "react-native";
 import { COLORS, RADIUS, SPACING } from "../theme";
+import { LinearGradient } from "expo-linear-gradient";
 
 interface CardProps {
   children: React.ReactNode;
@@ -33,35 +34,36 @@ export default function Card({ children, style, variant = 'default', onPress, ac
 
   // Determine base styles based on variant
   let baseStyle: any = {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.glassBackgroundLv2,
     padding: SPACING.lg,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
     marginBottom: SPACING.md,
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     elevation: 4,
+    overflow: 'hidden', // Contain the inner lighting
   };
 
   if (variant === 'hero') {
     baseStyle = {
       ...baseStyle,
+      backgroundColor: COLORS.glassBackgroundLv1,
       padding: SPACING.xl,
       borderColor: COLORS.accent,
       shadowColor: COLORS.accent,
       shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.15,
+      shadowOpacity: 0.25,
       shadowRadius: 15,
       elevation: 8,
-      overflow: 'hidden',
     };
   } else if (variant === 'stat') {
     baseStyle = {
       ...baseStyle,
-      backgroundColor: COLORS.backgroundSecondary,
+      backgroundColor: COLORS.glassBackgroundLv3,
       paddingVertical: SPACING.md,
       alignItems: 'center',
       justifyContent: 'center',
@@ -75,7 +77,7 @@ export default function Card({ children, style, variant = 'default', onPress, ac
     baseStyle = {
       ...baseStyle,
       borderColor: COLORS.error,
-      backgroundColor: 'rgba(229, 62, 62, 0.05)',
+      backgroundColor: COLORS.glowError,
       shadowColor: COLORS.error,
       shadowOpacity: 0.1,
     };
@@ -92,6 +94,10 @@ export default function Card({ children, style, variant = 'default', onPress, ac
           pressed && { opacity: activeOpacity }
         ]}
       >
+        <LinearGradient 
+           colors={[COLORS.gradientCardTop, COLORS.gradientCardBottom]}
+           style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%' }}
+        />
         {children}
       </Pressable>
     </Animated.View>

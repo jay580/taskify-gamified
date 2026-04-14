@@ -38,20 +38,22 @@ const getInitials = (name: string) =>
 
 // ─── User Profile ───
 
-// Creates a default profile for a new user (used when manually created in Firebase Auth)
 export const createDefaultUserProfile = async (
   uid: string,
   email: string,
   displayName?: string
 ): Promise<UserProfile> => {
-  // Extract studentId from email (e.g., STU001@tq.app -> STU001)
   const studentId = email.split('@')[0].toUpperCase();
   
   const profile: UserProfile = {
     uid,
     name: displayName || studentId,
     studentId,
-    room: '',
+    teamId: '',
+    teamName: '',
+    dateOfBirth: '',
+    email: email || '',
+    profileImage: null,
     role: 'student',
     pointsThisMonth: 0,
     totalTasksDone: 0,
@@ -60,6 +62,7 @@ export const createDefaultUserProfile = async (
     isActive: true,
     isSuspended: false,
     suspensionEnd: null,
+    needsProfileUpdate: false,
   };
 
   await setDoc(doc(db, 'users', uid), profile);
@@ -75,7 +78,11 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     uid: snap.id,
     name: d.name ?? '',
     studentId: d.studentId ?? '',
-    room: d.room ?? '',
+    teamId: d.teamId ?? '',
+    teamName: d.teamName ?? '',
+    dateOfBirth: d.dateOfBirth ?? '',
+    email: d.email ?? '',
+    profileImage: d.profileImage ?? null,
     role: d.role ?? 'student',
     pointsThisMonth: d.pointsThisMonth ?? 0,
     totalTasksDone: d.totalTasksDone ?? 0,
@@ -84,10 +91,10 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     isActive: d.isActive ?? true,
     isSuspended: d.isSuspended ?? false,
     suspensionEnd: tsToISO(d.suspensionEnd),
+    needsProfileUpdate: d.needsProfileUpdate ?? false,
   };
 };
 
-// Check if user is suspended
 export const isUserSuspended = (profile: UserProfile): boolean => {
   if (!profile.isSuspended) return false;
   if (!profile.suspensionEnd) return true;
@@ -110,6 +117,10 @@ export const getAvailableTasks = async (): Promise<Task[]> => {
       category: data.category ?? 'Domestic',
       points: data.points ?? 10,
       deadline: tsToISO(data.deadline),
+      startTime: tsToISO(data.startTime),
+      endTime: tsToISO(data.endTime),
+      duration: typeof data.duration === 'number' ? data.duration : 0,
+      durationType: data.durationType ?? null,
       assignedTo: data.assignedTo ?? 'all',
       isTeamTask: data.isTeamTask ?? false,
       isRepeatable: data.isRepeatable ?? false,
@@ -150,6 +161,11 @@ export const getStudentSubmissions = async (
       title: data.title ?? '',
       description: data.description ?? '',
       photoUrl: data.photoUrl ?? '',
+      photoUrls: Array.isArray(data.photoUrls)
+        ? data.photoUrls
+        : data.photoUrl
+          ? [data.photoUrl]
+          : [],
       notes: data.notes ?? '',
       status: data.status ?? 'pending',
       rejectionReason: data.rejectionReason ?? '',
@@ -178,6 +194,11 @@ export const getCompletedSubmissions = async (uid: string): Promise<Submission[]
       title: data.title ?? '',
       description: data.description ?? '',
       photoUrl: data.photoUrl ?? '',
+      photoUrls: Array.isArray(data.photoUrls)
+        ? data.photoUrls
+        : data.photoUrl
+          ? [data.photoUrl]
+          : [],
       notes: data.notes ?? '',
       status: 'approved' as const,
       rejectionReason: '',
@@ -193,20 +214,22 @@ export const submitTask = async (
   taskId: string,
   uid: string,
   task: Task,
-  photoUrl?: string,
+  photoUrls?: string[],
   notes?: string,
 ) => {
+  const safePhotoUrls = Array.isArray(photoUrls) ? photoUrls.filter(Boolean) : [];
   const submissionRef = await addDoc(collection(db, 'submissions'), {
     taskId,
     studentId: uid,
     type: 'task',
     title: task.title,
     description: task.description,
-    photoUrl: photoUrl ?? '',
+    photoUrls: safePhotoUrls,
+    photoUrl: safePhotoUrls[0] ?? '',
     notes: notes ?? '',
     status: 'pending',
     rejectionReason: '',
-    pointsAwarded: 0,  // Set by admin on approval
+    pointsAwarded: 0,
     submittedAt: Timestamp.now(),
     reviewedAt: null,
   });
@@ -219,20 +242,22 @@ export const submitSelfTask = async (
   uid: string,
   title: string,
   description: string,
-  photoUrl?: string,
+  photoUrls?: string[],
   notes?: string,
 ) => {
+  const safePhotoUrls = Array.isArray(photoUrls) ? photoUrls.filter(Boolean) : [];
   const submissionRef = await addDoc(collection(db, 'submissions'), {
     taskId: null,
     studentId: uid,
     type: 'self',
     title,
     description,
-    photoUrl: photoUrl ?? '',
+    photoUrls: safePhotoUrls,
+    photoUrl: safePhotoUrls[0] ?? '',
     notes: notes ?? '',
     status: 'pending',
     rejectionReason: '',
-    pointsAwarded: 0,  // Set by admin on approval
+    pointsAwarded: 0,
     submittedAt: Timestamp.now(),
     reviewedAt: null,
   });
@@ -255,20 +280,17 @@ export const approveSubmission = async (
   const submission = submissionSnap.data();
   const studentId = submission.studentId;
 
-  // Update submission status
   await updateDoc(submissionRef, {
     status: 'approved',
     pointsAwarded,
     reviewedAt: Timestamp.now(),
   });
 
-  // Award points to the student
   await updateDoc(doc(db, 'users', studentId), {
     pointsThisMonth: increment(pointsAwarded),
     totalTasksDone: increment(1),
   });
 
-  // Create notification
   await addDoc(collection(db, 'notifications'), {
     toUserId: studentId,
     type: 'approved',
@@ -297,7 +319,6 @@ export const rejectSubmission = async (
     reviewedAt: Timestamp.now(),
   });
 
-  // Create notification
   await addDoc(collection(db, 'notifications'), {
     toUserId: studentId,
     type: 'rejected',
@@ -322,7 +343,7 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
       uid: d.id,
       name: data.name ?? '',
       initials: getInitials(data.name ?? ''),
-      room: data.room ?? '',
+      teamName: data.teamName ?? '',
       totalTasksDone: data.totalTasksDone ?? 0,
       points: data.pointsThisMonth ?? 0,
       rank: idx + 1,
@@ -335,13 +356,14 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
   const snap = await getDoc(doc(db, 'settings', 'global'));
   if (!snap.exists()) return null;
   const d = snap.data();
+  const rewards = d.rewards ?? {};
   return {
     currentMonth: d.currentMonth ?? '',
     announcement: d.announcement ?? '',
     announcementExpiry: tsToISO(d.announcementExpiry),
-    reward1st: d.reward1st ?? '',
-    reward2nd: d.reward2nd ?? '',
-    reward3rd: d.reward3rd ?? '',
+    reward1st: d.reward1st ?? rewards.firstPlace ?? '',
+    reward2nd: d.reward2nd ?? rewards.secondPlace ?? '',
+    reward3rd: d.reward3rd ?? rewards.thirdPlace ?? '',
     lastResetAt: tsToISO(d.lastResetAt) ?? '',
   };
 };
