@@ -72,7 +72,7 @@ export default function LoginScreen() {
           <View style={styles.headerContainer}>
             <Logo size={100} style={{ alignSelf: 'flex-start', marginBottom: SPACING.md }} />
             <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to continue to TASKIFY</Text>
+            <Text style={styles.subtitle}>Sign in to continue to TASK BUZZ</Text>
           </View>
 
           <View style={styles.formContainer}>

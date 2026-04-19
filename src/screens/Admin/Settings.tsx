@@ -9,6 +9,7 @@ import Card from '../../components/Card';
 import Button from '../../components/Button';
 import Logo from '../../components/Logo';
 import { setRewards, resetMonth } from '../../services/settings';
+import { setWinnersFinalized, getAppSettings } from '../../services/firestore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { logout } from '../../services/auth';
@@ -30,20 +31,19 @@ export default function SettingsScreen() {
   const [firstPlace, setFirstPlace] = useState('');
   const [secondPlace, setSecondPlace] = useState('');
   const [thirdPlace, setThirdPlace] = useState('');
+  const [winnersFinalized, setFinalized] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     // Load existing rewards
     const loadRewards = async () => {
       try {
-        const docRef = doc(db, 'settings', 'global');
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          const rewards = data?.rewards ?? {};
-          setFirstPlace(data?.reward1st ?? rewards.firstPlace ?? '');
-          setSecondPlace(data?.reward2nd ?? rewards.secondPlace ?? '');
-          setThirdPlace(data?.reward3rd ?? rewards.thirdPlace ?? '');
+        const settings = await getAppSettings();
+        if (settings) {
+          setFirstPlace(settings.reward1st);
+          setSecondPlace(settings.reward2nd);
+          setThirdPlace(settings.reward3rd);
+          setFinalized(settings.winnersFinalized || false);
         }
       } catch (error) {
         console.error("Error loading settings: ", error);
@@ -51,6 +51,17 @@ export default function SettingsScreen() {
     };
     loadRewards();
   }, []);
+
+  const handleToggleFinalize = async () => {
+    const newState = !winnersFinalized;
+    try {
+      await setWinnersFinalized(newState);
+      setFinalized(newState);
+      showToast(newState ? "🏆 Winners finalized! Students can now claim rewards." : "🔓 Winners unfinalized.", "success");
+    } catch (error) {
+      showToast("Failed to update status", "error");
+    }
+  };
 
   const handleSaveRewards = async () => {
     try {
@@ -312,6 +323,17 @@ const handleResetMonth = () => {
           </View>
 
           <Button title="Save Rewards" onPress={handleSaveRewards} style={{ marginTop: SPACING.sm }} />
+          
+          <View style={{ marginTop: SPACING.xl, borderTopWidth: 1, borderTopColor: COLORS.glassBorder, paddingTop: SPACING.lg }}>
+            <Text style={[styles.helpText, { marginBottom: SPACING.md }]}>
+              Finalizing winners will allow students in the top 3 to claim their rewards. Use this at the end of the month before resetting.
+            </Text>
+            <Button 
+              title={winnersFinalized ? "🔓 Unfinalize Winners" : "🏆 Finalize Winners"} 
+              variant={winnersFinalized ? "secondary" : "primary"}
+              onPress={handleToggleFinalize} 
+            />
+          </View>
         </View>
 
         {/* EXPORT SECTION */}

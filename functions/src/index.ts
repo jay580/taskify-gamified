@@ -1,5 +1,5 @@
 /**
- * Firebase Cloud Functions for TASKIFY
+ * Firebase Cloud Functions for TASK BUZZ
  * Auto-creates Firestore user profile when a new user is created in Firebase Auth
  */
 

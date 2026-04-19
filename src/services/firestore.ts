@@ -347,6 +347,7 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
       totalTasksDone: data.totalTasksDone ?? 0,
       points: data.pointsThisMonth ?? 0,
       rank: idx + 1,
+      rewardClaimed: data.rewardClaimed ?? false,
     };
   });
 };
@@ -365,7 +366,40 @@ export const getAppSettings = async (): Promise<AppSettings | null> => {
     reward2nd: d.reward2nd ?? rewards.secondPlace ?? '',
     reward3rd: d.reward3rd ?? rewards.thirdPlace ?? '',
     lastResetAt: tsToISO(d.lastResetAt) ?? '',
+    winnersFinalized: d.winnersFinalized ?? false,
   };
+};
+
+export const setWinnersFinalized = async (finalized: boolean) => {
+  await updateDoc(doc(db, 'settings', 'global'), {
+    winnersFinalized: finalized,
+  });
+};
+
+// ─── Rewards ───
+export const getAdmins = async (): Promise<string[]> => {
+  const q = query(collection(db, 'users'), where('role', '==', 'admin'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.id);
+};
+
+export const claimReward = async (uid: string, name: string, rank: number, rewardTitle: string) => {
+  const admins = await getAdmins();
+  const batchRequests = admins.map(adminId => 
+    addDoc(collection(db, 'notifications'), {
+      toUserId: adminId,
+      type: 'reward',
+      message: `${name} (Rank #${rank}) has claimed their reward: ${rewardTitle}`,
+      isRead: false,
+      createdAt: Timestamp.now(),
+    })
+  );
+  
+  // Mark as claimed in student profile
+  const userRef = doc(db, 'users', uid);
+  await updateDoc(userRef, { rewardClaimed: true });
+
+  await Promise.all(batchRequests);
 };
 
 // ─── Notifications ───

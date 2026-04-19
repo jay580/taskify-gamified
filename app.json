@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TASKIFY",
-    "slug": "TASKIFY",
+    "name": "Task Buzz",
+    "slug": "task-buzz",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -22,7 +22,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.jnark08.TASKIFY"
+      "package": "com.jnark08.taskbuzz"
     },
     "web": {
       "favicon": "./assets/favicon.png"

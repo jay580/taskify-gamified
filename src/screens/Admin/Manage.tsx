@@ -10,7 +10,7 @@ import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Logo from '../../components/Logo';
 import { createTask, observeTasks, toggleTaskActive, deleteTask, Task, TaskPoints } from '../../services/tasks';
-import { createStudent, observeStudents, UserSchema, awardAdminPoints, updateStudentSuspension, deleteStudent } from '../../services/users';
+import { createStudent, observeStudents, UserSchema, awardAdminPoints, updateStudentSuspension, deleteStudent, incrementRewardsWon } from '../../services/users';
 import { observeTeams, giftPointsToTeam, TeamSchema } from '../../services/teams';
 import { saveAnnouncement } from '../../services/settings';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -49,6 +49,10 @@ export default function ManageScreen() {
   const [announcementMsg, setAnnouncementMsg] = useState('');
   const [expiryDays, setExpiryDays] = useState('7');
 
+  // === Student Details Modal ===
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<UserSchema | null>(null);
+
   // === Credential Modal ===
   const [credModalVisible, setCredModalVisible] = useState(false);
   const [createdCreds, setCreatedCreds] = useState({ studentId: '', email: '', password: '' });
@@ -64,6 +68,14 @@ export default function ManageScreen() {
       unsubTeams();
     };
   }, []);
+
+  // Sync selectedStudent if students list updates (e.g., reward increment)
+  useEffect(() => {
+    if (selectedStudent) {
+      const updated = students.find(s => s.uid === selectedStudent.uid);
+      if (updated) setSelectedStudent(updated);
+    }
+  }, [students]);
 
   // --- Handlers ---
   const handleCreateTask = async () => {
@@ -96,7 +108,7 @@ export default function ManageScreen() {
   };
 
   const handleCreateStudent = async () => {
-    if (!studentName || !studentTeam || !studentDOB) return Alert.alert("Error", "Name, Team and Date of Birth required.");
+    if (!studentName || !studentTeam) return Alert.alert("Error", "Name and Team are required.");
     setLoadingStudent(true);
     try {
       const creds = await createStudent(studentName, studentTeam, studentDOB);
@@ -308,7 +320,7 @@ export default function ManageScreen() {
         <Text style={styles.sectionTitle}>Add New Student</Text>
         <TextInput style={styles.glassInput} placeholderTextColor={COLORS.muted} placeholder="Full Name" value={studentName} onChangeText={setStudentName} />
         <TextInput style={styles.glassInput} placeholderTextColor={COLORS.muted} placeholder="Team Name (e.g., Alpha)" value={studentTeam} onChangeText={setStudentTeam} />
-        <TextInput style={styles.glassInput} placeholderTextColor={COLORS.muted} placeholder="Date of Birth (YYYY-MM-DD)" value={studentDOB} onChangeText={setStudentDOB} />
+        <TextInput style={styles.glassInput} placeholderTextColor={COLORS.muted} placeholder="Date of Birth (YYYY-MM-DD) (Optional)" value={studentDOB} onChangeText={setStudentDOB} />
         <Text style={styles.helperText}>* Login credentials will be auto-generated and shown in a modal.</Text>
         <Button loading={loadingStudent} disabled={loadingStudent} title={loadingStudent ? "Registering..." : "Register Student"} onPress={handleCreateStudent} style={{ marginTop: SPACING.sm }} />
       </View>
@@ -324,44 +336,44 @@ export default function ManageScreen() {
       ) : (
         students.map((s, index) => (
           <FadeInView key={s.uid || index.toString()} delay={index * 50}>
-            <Card>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={styles.itemTitle}>{s.name}</Text>
-                  {s.isSuspended && <Badge label="SUSPENDED" backgroundColor={COLORS.error} textColor={COLORS.white} />}
+            <Card onPress={() => { setSelectedStudent(s); setDetailModalVisible(true); }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={styles.itemTitle}>{s.name}</Text>
+                    {s.isSuspended && <Badge label="SUSPENDED" backgroundColor={COLORS.error} textColor={COLORS.white} />}
+                  </View>
+                  <Text style={{ color: COLORS.mutedText, marginTop: 4 }}>{s.studentId} • {s.teamName ? `Team ${s.teamName}` : 'No Team'}</Text>
                 </View>
-                <Text style={{ color: COLORS.mutedText, marginTop: 4 }}>{s.studentId} • {s.teamName ? `Team ${s.teamName}` : 'No Team'}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.accent }}>{s.pointsThisMonth} pts</Text>
+                </View>
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.accent }}>{s.pointsThisMonth} pts</Text>
-              </View>
-            </View>
-            
-            <View style={styles.studentActionContainer}>
-               <Text style={styles.labelSmall}>Quick Reward</Text>
-               <View style={{flexDirection: 'row', gap: 8, marginBottom: 12}}>
-                 {[5, 10, 15, 20].map((pts) => (
-                   <TouchableOpacity activeOpacity={0.7} key={pts} style={styles.quickPtsBtn} onPress={() => handleAwardPoints(s.uid, pts)}>
-                     <Text style={{color: COLORS.white, fontWeight: 'bold'}}>+{pts}</Text>
+              
+              <View style={styles.studentActionContainer}>
+                 <Text style={styles.labelSmall}>Quick Reward</Text>
+                 <View style={{flexDirection: 'row', gap: 8, marginBottom: 12}}>
+                   {[5, 10, 15, 20].map((pts) => (
+                     <TouchableOpacity activeOpacity={0.7} key={pts} style={styles.quickPtsBtn} onPress={() => handleAwardPoints(s.uid, pts)}>
+                       <Text style={{color: COLORS.white, fontWeight: 'bold'}}>+{pts}</Text>
+                     </TouchableOpacity>
+                   ))}
+                 </View>
+                 
+                 <View style={{ flexDirection: 'row', gap: 8 }}>
+                   <TouchableOpacity activeOpacity={0.7} style={[styles.glassActionBtn, { flex: 1 }]} onPress={() => handleToggleSuspend(s)}>
+                     <MaterialCommunityIcons name={s.isSuspended ? "account-check" : "account-cancel"} size={16} color={s.isSuspended ? COLORS.success : COLORS.error} />
+                     <Text style={{ color: s.isSuspended ? COLORS.success : COLORS.error, fontWeight: 'bold', marginLeft: 6, fontSize: 12 }}>
+                       {s.isSuspended ? "Unsuspend" : "Suspend"}
+                     </Text>
                    </TouchableOpacity>
-                 ))}
-               </View>
-               
-               <View style={{ flexDirection: 'row', gap: 8 }}>
-                 <TouchableOpacity activeOpacity={0.7} style={[styles.glassActionBtn, { flex: 1 }]} onPress={() => handleToggleSuspend(s)}>
-                   <MaterialCommunityIcons name={s.isSuspended ? "account-check" : "account-cancel"} size={16} color={s.isSuspended ? COLORS.success : COLORS.error} />
-                   <Text style={{ color: s.isSuspended ? COLORS.success : COLORS.error, fontWeight: 'bold', marginLeft: 6, fontSize: 12 }}>
-                     {s.isSuspended ? "Unsuspend" : "Suspend"}
-                   </Text>
-                 </TouchableOpacity>
-                 <TouchableOpacity activeOpacity={0.7} style={[styles.glassActionBtn, { flex: 1, borderColor: 'rgba(229, 62, 62, 0.3)' }]} onPress={() => handleDeleteStudent(s)}>
-                   <MaterialCommunityIcons name="account-remove" size={16} color={COLORS.error} />
-                   <Text style={{ color: COLORS.error, fontWeight: 'bold', marginLeft: 6, fontSize: 12 }}>Remove</Text>
-                 </TouchableOpacity>
-               </View>
-            </View>
-          </Card>
+                   <TouchableOpacity activeOpacity={0.7} style={[styles.glassActionBtn, { flex: 1, borderColor: 'rgba(229, 62, 62, 0.3)' }]} onPress={() => handleDeleteStudent(s)}>
+                     <MaterialCommunityIcons name="account-remove" size={16} color={COLORS.error} />
+                     <Text style={{ color: COLORS.error, fontWeight: 'bold', marginLeft: 6, fontSize: 12 }}>Remove</Text>
+                   </TouchableOpacity>
+                 </View>
+              </View>
+            </Card>
           </FadeInView>
         ))
       )}
@@ -483,6 +495,68 @@ export default function ManageScreen() {
 
             <Button title="📋 Copy Credentials" onPress={handleCopyCredentials} style={{ marginTop: SPACING.lg }} />
             <Button title="Done" variant="secondary" onPress={() => setCredModalVisible(false)} style={{ marginTop: SPACING.sm }} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Student Detail Modal */}
+      <Modal visible={detailModalVisible} animationType="slide" transparent onRequestClose={() => setDetailModalVisible(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.credCard}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg}}>
+              <Text style={styles.sectionTitle}>Student Details</Text>
+              <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedStudent && (
+              <View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.credLabel}>Full Name</Text>
+                  <Text style={styles.credValue}>{selectedStudent.name}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.credLabel}>Email</Text>
+                  <Text style={styles.credValue}>{selectedStudent.email}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.credLabel}>Student ID</Text>
+                  <Text style={styles.credValue}>{selectedStudent.studentId}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.credLabel}>Team</Text>
+                  <Text style={styles.credValue}>{selectedStudent.teamName || 'None'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.credLabel}>Date of Birth</Text>
+                  <Text style={styles.credValue}>{selectedStudent.dateOfBirth}</Text>
+                </View>
+                <View style={[styles.detailItem, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.credLabel}>Rewards Won</Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                    <Text style={[styles.credValue, { fontSize: 24, color: COLORS.gold }]}>{selectedStudent.rewardsWon || 0}</Text>
+                    <TouchableOpacity 
+                      style={styles.rewardPlusBtn} 
+                      onPress={async () => {
+                        try {
+                          await incrementRewardsWon(selectedStudent.uid);
+                          showToast("🏆 Reward count updated", "success");
+                        } catch (e) {
+                          showToast("Error updating reward count", "error");
+                        }
+                      }}
+                    >
+                      <MaterialCommunityIcons name="plus" size={20} color={COLORS.white} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{marginTop: SPACING.xl}}>
+                  <Button title="Close" variant="secondary" onPress={() => setDetailModalVisible(false)} />
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -708,5 +782,23 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontWeight: '800',
     fontSize: 16,
+  },
+  detailItem: {
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.glassBorder,
+  },
+  rewardPlusBtn: {
+    backgroundColor: COLORS.success,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+    elevation: 4,
   },
 });

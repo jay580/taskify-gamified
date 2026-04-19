@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +21,7 @@ import {
   getAvailableTasks,
   getAppSettings,
   getLeaderboard,
+  claimReward,
 } from '../../services/firestore';
 import type { Task, AppSettings } from '../../types';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '../../theme';
@@ -28,12 +30,13 @@ import Logo from '../../components/Logo';
 import FadeInView from '../../components/FadeInView';
 import TaskCard from '../../components/TaskCard';
 import SectionContainer from '../../components/SectionContainer';
-import Card from '../../components/Card';
+import { useToast } from '../../contexts/ToastContext';
 import { getTaskStatus, getTaskStatusLabel } from '../../utils/taskStatus';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { userProfile, refreshProfile } = useAuth();
+  const { showToast } = useToast();
   const user = useUser();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -41,6 +44,7 @@ export default function HomeScreen() {
   const [rank, setRank] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -72,6 +76,34 @@ export default function HomeScreen() {
     await Promise.all([loadData(), refreshProfile()]);
     setRefreshing(false);
   }, [loadData, refreshProfile]);
+
+  const handleClaimReward = async (targetRank: number) => {
+    if (!userProfile) return;
+
+    if (!settings?.winnersFinalized) {
+      return Alert.alert("Winners Not Finalized", "The admin has not finalized the winners yet. Please wait until the end of the month.");
+    }
+
+    if (userProfile.rewardClaimed) {
+      return Alert.alert("Already Claimed", "Reward already claimed, talk to admin for reward");
+    }
+    
+    let rewardTitle = '';
+    if (targetRank === 1) rewardTitle = settings?.reward1st || '1st Place Prize';
+    else if (targetRank === 2) rewardTitle = settings?.reward2nd || '2nd Place Prize';
+    else if (targetRank === 3) rewardTitle = settings?.reward3rd || '3rd Place Prize';
+
+    setClaiming(true);
+    try {
+      await claimReward(userProfile.uid, userProfile.name, targetRank, rewardTitle);
+      Alert.alert("Claim Sent", "Your reward claim has been sent to the admin!");
+      await refreshProfile(); // Refresh to update rewardClaimed status locally
+    } catch (error) {
+      showToast("Failed to claim reward", "error");
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   // Derive specialized lists without arbitrary slicing
   const featuredTasks = useMemo(() => {
@@ -134,7 +166,7 @@ export default function HomeScreen() {
           {/* App Brand Header */}
           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xl, paddingHorizontal: SPACING.sm}}>
              <Logo size={36} />
-             <Text style={{color: COLORS.white, fontWeight: '900', fontSize: 20, marginLeft: 12, letterSpacing: 3}}>TASKIFY</Text>
+             <Text style={{color: COLORS.white, fontWeight: '900', fontSize: 20, marginLeft: 12, letterSpacing: 3}}>TASK BUZZ</Text>
           </View>
 
           {/* Profile Row */}
@@ -144,7 +176,12 @@ export default function HomeScreen() {
             </View>
             <View style={styles.profileTextContainer}>
               <Text style={styles.welcomeText}>Hello,</Text>
-              <Text style={styles.nameText}>{displayName}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.nameText}>{displayName}</Text>
+                {displayUser?.rewardClaimed && (
+                  <MaterialCommunityIcons name="bee" size={28} color="#F7D060" style={{ marginLeft: 8 }} />
+                )}
+              </View>
             </View>
           </View>
 
@@ -260,6 +297,110 @@ export default function HomeScreen() {
             ))}
           </SectionContainer>
         </FadeInView>
+
+        {/* Monthly Rewards */}
+        {(settings?.reward1st || settings?.reward2nd || settings?.reward3rd) ? (
+          <FadeInView delay={500}>
+            <SectionContainer title="Monthly Rewards" icon="gift-outline" iconColor={COLORS.secondary}>
+              <View style={styles.rewardsCard}>
+                <LinearGradient
+                  colors={[COLORS.gradientCardTop, COLORS.gradientCardBottom]}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                
+                {settings?.reward1st ? (
+                  <View style={styles.rewardItem}>
+                    <View style={[styles.rewardIconBadge, { backgroundColor: 'rgba(255, 215, 0, 0.15)' }]}>
+                      <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
+                    </View>
+                    <View style={styles.rewardTextContainer}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.rewardPlace}>1st Place</Text>
+                        {displayUser?.rewardClaimed && rank === 1 && (
+                          <MaterialCommunityIcons name="bee" size={14} color="#F7D060" style={{ marginLeft: 6 }} />
+                        )}
+                      </View>
+                      <Text style={styles.rewardTitle}>{settings.reward1st}</Text>
+                    </View>
+                    {rank === 1 && (
+                      <TouchableOpacity 
+                        style={[styles.claimButtonSmall, { backgroundColor: '#FFD700' }]} 
+                        onPress={() => handleClaimReward(1)}
+                        disabled={claiming}
+                      >
+                        {claiming ? (
+                          <ActivityIndicator size="small" color={COLORS.black} />
+                        ) : (
+                          <Text style={styles.claimButtonTextSmall}>CLAIM</Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : null}
+
+                {settings?.reward2nd ? (
+                  <View style={[styles.rewardItem, { borderTopWidth: 1, borderTopColor: COLORS.glassBorder, marginTop: SPACING.xs, paddingTop: SPACING.sm }]}>
+                    <View style={[styles.rewardIconBadge, { backgroundColor: 'rgba(192, 192, 192, 0.15)' }]}>
+                      <MaterialCommunityIcons name="trophy" size={20} color="#C0C0C0" />
+                    </View>
+                    <View style={styles.rewardTextContainer}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.rewardPlace}>2nd Place</Text>
+                        {displayUser?.rewardClaimed && rank === 2 && (
+                          <MaterialCommunityIcons name="bee" size={14} color="#F7D060" style={{ marginLeft: 6 }} />
+                        )}
+                      </View>
+                      <Text style={styles.rewardTitle}>{settings.reward2nd}</Text>
+                    </View>
+                    {rank === 2 && (
+                      <TouchableOpacity 
+                        style={[styles.claimButtonSmall, { backgroundColor: '#C0C0C0' }]} 
+                        onPress={() => handleClaimReward(2)}
+                        disabled={claiming}
+                      >
+                        {claiming ? (
+                          <ActivityIndicator size="small" color={COLORS.black} />
+                        ) : (
+                          <Text style={styles.claimButtonTextSmall}>CLAIM</Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : null}
+
+                {settings?.reward3rd ? (
+                  <View style={[styles.rewardItem, { borderTopWidth: 1, borderTopColor: COLORS.glassBorder, marginTop: SPACING.xs, paddingTop: SPACING.sm }]}>
+                    <View style={[styles.rewardIconBadge, { backgroundColor: 'rgba(205, 127, 50, 0.15)' }]}>
+                      <MaterialCommunityIcons name="trophy" size={20} color="#CD7F32" />
+                    </View>
+                    <View style={styles.rewardTextContainer}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.rewardPlace}>3rd Place</Text>
+                        {displayUser?.rewardClaimed && rank === 3 && (
+                          <MaterialCommunityIcons name="bee" size={14} color="#F7D060" style={{ marginLeft: 6 }} />
+                        )}
+                      </View>
+                      <Text style={styles.rewardTitle}>{settings.reward3rd}</Text>
+                    </View>
+                    {rank === 3 && (
+                      <TouchableOpacity 
+                        style={[styles.claimButtonSmall, { backgroundColor: '#CD7F32' }]} 
+                        onPress={() => handleClaimReward(3)}
+                        disabled={claiming}
+                      >
+                        {claiming ? (
+                          <ActivityIndicator size="small" color={COLORS.black} />
+                        ) : (
+                          <Text style={styles.claimButtonTextSmall}>CLAIM</Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : null}
+              </View>
+            </SectionContainer>
+          </FadeInView>
+        ) : null}
 
         {/* Bottom Spacing for Tab Bar */}
         <View style={{ height: 120 }} />
@@ -423,5 +564,53 @@ const styles = StyleSheet.create({
   emptyText: {
     ...TYPOGRAPHY.body,
     color: COLORS.mutedText,
+  },
+  rewardsCard: {
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    overflow: 'hidden',
+    padding: SPACING.md,
+    backgroundColor: COLORS.glassBackgroundLv2,
+  },
+  rewardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  rewardIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  rewardTextContainer: {
+    flex: 1,
+  },
+  rewardPlace: {
+    ...TYPOGRAPHY.small,
+    color: COLORS.mutedText,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  rewardTitle: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+  claimButtonSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  claimButtonTextSmall: {
+    ...TYPOGRAPHY.badge,
+    color: COLORS.black,
+    fontWeight: '900',
   },
 });

@@ -81,6 +81,7 @@ export const resetMonth = async () => {
         batch.update(userRef, {
           pointsThisMonth: 0,
           totalTasksDone: 0,
+          rewardClaimed: false,
         });
       }
     });
@@ -88,7 +89,8 @@ export const resetMonth = async () => {
     // Update settings
     const settingsRef = doc(db, 'settings', 'global');
     batch.set(settingsRef, {
-      lastResetAt: serverTimestamp()
+      lastResetAt: serverTimestamp(),
+      winnersFinalized: false,
     }, { merge: true });
 
     await batch.commit();

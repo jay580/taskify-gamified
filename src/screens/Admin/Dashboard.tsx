@@ -145,7 +145,7 @@ export default function DashboardScreen() {
           <View style={styles.brandRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Logo size={36} />
-              <Text style={styles.brandTitle}>TASKIFY</Text>
+              <Text style={styles.brandTitle}>TASK BUZZ</Text>
             </View>
             <View style={styles.adminBadge}>
               <MaterialCommunityIcons name="shield-account" size={14} color={COLORS.accent} />
@@ -271,7 +271,12 @@ export default function DashboardScreen() {
                    <View style={[styles.leaderboardRow, index !== Math.min(2, leaderboard.length -1) && {borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder}]}>
                      <Text style={styles.rankIcon}>{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</Text>
                      <View style={styles.leadInfo}>
-                       <Text style={styles.leadName}>{student.name}</Text>
+                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                         <Text style={styles.leadName}>{student.name}</Text>
+                         {student.rewardClaimed && (
+                           <MaterialCommunityIcons name="bee" size={22} color="#F7D060" style={{ marginLeft: 6 }} />
+                         )}
+                       </View>
                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                          <Text style={styles.leadRoom}>{student.teamName ? `Team ${student.teamName}` : ''}</Text>
                          {student.streakDays > 1 && (

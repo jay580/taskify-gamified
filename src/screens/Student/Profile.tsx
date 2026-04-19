@@ -45,6 +45,11 @@ export default function ProfileScreen() {
   const [changingEmail, setChangingEmail] = useState(false);
   const [emailLinkSent, setEmailLinkSent] = useState(false);
 
+  // DOB state
+  const [dobModalVisible, setDobModalVisible] = useState(false);
+  const [newDob, setNewDob] = useState('');
+  const [savingDob, setSavingDob] = useState(false);
+
   const avatarScale = useRef(new Animated.Value(1)).current;
 
   const handleAvatarPressIn = () => { Animated.spring(avatarScale, { toValue: 0.95, useNativeDriver: true }).start(); };
@@ -158,6 +163,24 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSaveDob = async () => {
+    if (newDob && !/^\d{4}-\d{2}-\d{2}$/.test(newDob)) {
+      return showToast("⚠️ Format must be YYYY-MM-DD", "error");
+    }
+    setSavingDob(true);
+    try {
+      const uid = user?.uid || userProfile?.uid;
+      if (!uid) throw new Error("No authenticated user.");
+      await updateDoc(doc(db, 'users', uid), { dateOfBirth: newDob });
+      showToast("✅ Date of Birth updated!", "success");
+      setDobModalVisible(false);
+    } catch (e: any) {
+      showToast(`❌ ${e.message}`, "error");
+    } finally {
+      setSavingDob(false);
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
@@ -257,7 +280,10 @@ export default function ProfileScreen() {
           <Text style={styles.sectionHeader}>APP</Text>
           <Card style={styles.glassGroupCard}>
             {renderActionRow('card-account-details-outline', COLORS.success, 'Student ID', displayUser?.studentId || 'N/A')}
-            {renderActionRow('cake-variant-outline', COLORS.accent, 'Date of Birth', displayUser?.dateOfBirth || 'N/A', undefined, false)}
+            {renderActionRow('cake-variant-outline', COLORS.accent, 'Date of Birth', displayUser?.dateOfBirth || 'Not Set', () => {
+              setNewDob(displayUser?.dateOfBirth || '');
+              setDobModalVisible(true);
+            }, false)}
           </Card>
         </FadeInView>
 
@@ -350,6 +376,33 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               </View>
             )}
+          </ScrollView>
+        </LinearGradient>
+      </Modal>
+
+      {/* Edit DOB Modal */}
+      <Modal visible={dobModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setDobModalVisible(false)}>
+        <LinearGradient colors={[COLORS.gradientBgStart, COLORS.gradientBgEnd]} style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Update Date of Birth</Text>
+            <TouchableOpacity onPress={() => setDobModalVisible(false)} style={styles.modalCloseBtn}>
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <Text style={styles.modalLabel}>Date of Birth (YYYY-MM-DD)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. 2005-08-15"
+              placeholderTextColor={COLORS.mutedText}
+              value={newDob}
+              onChangeText={setNewDob}
+            />
+
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveDob} disabled={savingDob}>
+              <Text style={styles.saveBtnText}>{savingDob ? "Saving..." : "Save Date of Birth"}</Text>
+            </TouchableOpacity>
           </ScrollView>
         </LinearGradient>
       </Modal>

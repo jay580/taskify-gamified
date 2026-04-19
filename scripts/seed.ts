@@ -38,18 +38,18 @@ async function seed() {
   try {
     const cred = await createUserWithEmailAndPassword(
       auth,
-      'student@taskify.com',
+      'student@taskbuzz.com',
       'Test1234!',
     );
     studentUid = cred.user.uid;
-    console.log('✅ Created auth user: student@taskify.com, UID:', studentUid);
+    console.log('✅ Created auth user: student@taskbuzz.com, UID:', studentUid);
   } catch (err: any) {
     if (err.code === 'auth/email-already-in-use') {
-      console.log('⚠️  student@taskify.com already exists — skipping auth creation');
+      console.log('⚠️  student@taskbuzz.com already exists — skipping auth creation');
       // You'll need to manually look up the UID or sign in
       // For now we'll use a placeholder — update if needed
       const { signInWithEmailAndPassword } = await import('firebase/auth');
-      const cred = await signInWithEmailAndPassword(auth, 'student@taskify.com', 'Test1234!');
+      const cred = await signInWithEmailAndPassword(auth, 'student@taskbuzz.com', 'Test1234!');
       studentUid = cred.user.uid;
       console.log('  Signed in as existing user, UID:', studentUid);
     } else {
@@ -60,7 +60,7 @@ async function seed() {
   // ── 2. Create student user profile ──
   await setDoc(doc(db, 'users', studentUid), {
     name: 'Aryan Sharma',
-    email: 'student@taskify.com',
+    email: 'student@taskbuzz.com',
     role: 'student',
     room: 'Room 4B',
     totalPoints: 1250,
@@ -75,10 +75,10 @@ async function seed() {
 
   // ── 3. Create additional students for leaderboard ──
   const otherStudents = [
-    { id: 'student2', name: 'Arjun Mehta', email: 'arjun@taskify.com', room: 'Room 3A', totalPoints: 1500, monthlyPoints: 920, totalTasks: 52, streak: 8, level: 14, avatarColor: '#64B5F6' },
-    { id: 'student3', name: 'Priya Sharma', email: 'priya@taskify.com', room: 'Room 2C', totalPoints: 1100, monthlyPoints: 760, totalTasks: 38, streak: 3, level: 10, avatarColor: '#FF8A65' },
-    { id: 'student4', name: 'Rahul Nair', email: 'rahul@taskify.com', room: 'Room 1A', totalPoints: 980, monthlyPoints: 680, totalTasks: 35, streak: 2, level: 9, avatarColor: '#81C784' },
-    { id: 'student5', name: 'Sneha Patil', email: 'sneha@taskify.com', room: 'Room 3B', totalPoints: 850, monthlyPoints: 620, totalTasks: 30, streak: 1, level: 8, avatarColor: '#B0BEC5' },
+    { id: 'student2', name: 'Arjun Mehta', email: 'arjun@taskbuzz.com', room: 'Room 3A', totalPoints: 1500, monthlyPoints: 920, totalTasks: 52, streak: 8, level: 14, avatarColor: '#64B5F6' },
+    { id: 'student3', name: 'Priya Sharma', email: 'priya@taskbuzz.com', room: 'Room 2C', totalPoints: 1100, monthlyPoints: 760, totalTasks: 38, streak: 3, level: 10, avatarColor: '#FF8A65' },
+    { id: 'student4', name: 'Rahul Nair', email: 'rahul@taskbuzz.com', room: 'Room 1A', totalPoints: 980, monthlyPoints: 680, totalTasks: 35, streak: 2, level: 9, avatarColor: '#81C784' },
+    { id: 'student5', name: 'Sneha Patil', email: 'sneha@taskbuzz.com', room: 'Room 3B', totalPoints: 850, monthlyPoints: 620, totalTasks: 30, streak: 1, level: 8, avatarColor: '#B0BEC5' },
   ];
 
   for (const s of otherStudents) {
@@ -170,7 +170,7 @@ async function seed() {
   console.log('✅ Created monthly reward');
 
   console.log('\n🎉 Seed complete!');
-  console.log('   Login: student@taskify.com / Test1234!');
+  console.log('   Login: student@taskbuzz.com / Test1234!');
   process.exit(0);
 }
 

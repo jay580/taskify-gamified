@@ -107,7 +107,8 @@ export default function ForceUpdateProfileScreen() {
           <Card style={styles.card}>
             <View style={styles.header}>
               <Logo size={80} style={{ marginBottom: SPACING.lg }} />
-              <Text style={styles.title}>Welcome to TASKIFY! 🎉</Text>
+              <Text style={styles.title}>Welcome to TASK BUZZ! 🎉</Text>
+
               <Text style={styles.subtitle}>
                 You are logging in for the first time. For security reasons, you must update your email and password to continue.
               </Text>

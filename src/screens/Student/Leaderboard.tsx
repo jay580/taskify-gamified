@@ -14,12 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { getLeaderboard } from '../../services/firestore';
+import { getLeaderboard, claimReward, getAppSettings } from '../../services/firestore';
 import { observeTeamLeaderboard, TeamSchema } from '../../services/teams';
-import type { LeaderboardEntry } from '../../types';
+import type { LeaderboardEntry, AppSettings } from '../../types';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '../../theme';
 import FadeInView from '../../components/FadeInView';
 import Card from '../../components/Card';
+import { useToast } from '../../contexts/ToastContext';
 
 const TABS = ['Student Rank', 'Team Rank'];
 
@@ -70,18 +71,25 @@ function TeamPodium({ teams }: { teams: TeamSchema[] }) {
 
 export default function LeaderboardScreen() {
   const { userProfile } = useAuth();
+  const { showToast } = useToast();
   const uid = userProfile?.uid ?? '';
 
   const [activeTab, setActiveTab] = useState('Student Rank');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [teams, setTeams] = useState<TeamSchema[]>([]);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const data = await getLeaderboard();
-      setEntries(data);
+      const [leaderboardData, appSettings] = await Promise.all([
+        getLeaderboard(),
+        getAppSettings()
+      ]);
+      setEntries(leaderboardData);
+      setSettings(appSettings);
     } catch (err) {
       console.error('Error loading leaderboard:', err);
     } finally {
@@ -102,12 +110,32 @@ export default function LeaderboardScreen() {
     setRefreshing(false);
   }, [loadData]);
 
+  const handleClaimReward = async (rank: number) => {
+    if (!userProfile) return;
+    
+    let rewardTitle = '';
+    if (rank === 1) rewardTitle = settings?.reward1st || '1st Place Prize';
+    else if (rank === 2) rewardTitle = settings?.reward2nd || '2nd Place Prize';
+    else if (rank === 3) rewardTitle = settings?.reward3rd || '3rd Place Prize';
+
+    setClaiming(true);
+    try {
+      await claimReward(userProfile.uid, userProfile.name, rank, rewardTitle);
+      showToast("Reward claim sent to Admin!", "success");
+    } catch (error) {
+      showToast("Failed to claim reward", "error");
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   const topThree = entries.slice(0, 3);
   const podiumOrder = topThree.length >= 3 ? [topThree[1], topThree[0], topThree[2]] : topThree;
 
   const renderPodiumItem = (item: LeaderboardEntry, isCenter: boolean) => {
     const styleIdx = item.rank - 1;
     const style = PODIUM_STYLES[styleIdx] || PODIUM_STYLES[2];
+    const isMe = item.uid === uid;
 
     return (
       <View key={item.uid} style={[styles.podiumItem, isCenter ? styles.podiumCenter : null]}>
@@ -119,7 +147,12 @@ export default function LeaderboardScreen() {
           </View>
         </View>
 
-        <Text style={styles.podiumName} numberOfLines={1}>{item.name.split(' ')[0]}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.podiumName} numberOfLines={1}>{item.name.split(' ')[0]}</Text>
+          {item.rewardClaimed && (
+            <MaterialCommunityIcons name="bee" size={22} color="#F7D060" style={{ marginLeft: 4 }} />
+          )}
+        </View>
         <Text style={styles.podiumPoints}>{item.points}</Text>
 
         <LinearGradient
@@ -134,21 +167,31 @@ export default function LeaderboardScreen() {
 
   const renderListItem = ({ item }: { item: LeaderboardEntry }) => {
     const isMe = item.uid === uid;
+    const isTop3 = item.rank <= 3;
+    const styleIdx = isTop3 ? item.rank - 1 : 2;
+    const style = PODIUM_STYLES[styleIdx];
     
     return (
       <FadeInView delay={item.rank * 50}>
-        <View style={[styles.listRowWrapper, isMe && styles.listRowWrapperMe]}>
+        <View style={[
+          styles.listRowWrapper, 
+          isMe && styles.listRowWrapperMe,
+          isTop3 && { borderColor: `${style.glow}60`, borderWidth: 1.5 }
+        ]}>
           <LinearGradient colors={[COLORS.gradientCardTop, COLORS.gradientCardBottom]} style={styles.rowTopLight} />
           
-          <Text style={styles.listRank}>#{item.rank}</Text>
+          <Text style={[styles.listRank, isTop3 && { color: style.glow }]}>#{item.rank}</Text>
 
-          <View style={styles.listAvatar}>
+          <View style={[styles.listAvatar, isTop3 && { borderColor: style.glow }]}>
             <Text style={styles.listAvatarText}>{item.initials}</Text>
           </View>
 
           <View style={styles.listInfo}>
             <View style={styles.listNameRow}>
               <Text style={styles.listName}>{item.name}</Text>
+              {item.rewardClaimed && (
+                <MaterialCommunityIcons name="bee" size={14} color="#F7D060" style={{ marginLeft: 6 }} />
+              )}
               {isMe && (
                 <View style={styles.youBadge}>
                   <Text style={styles.youBadgeText}>YOU</Text>
@@ -359,4 +402,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
   },
   listPoints: { ...TYPOGRAPHY.body, fontWeight: '800', color: COLORS.gold },
+  claimButtonPodium: {
+    marginTop: SPACING.xs, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm, borderWidth: 1,
+  },
+  claimButtonList: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.md, marginLeft: SPACING.md,
+  },
+  claimButtonText: {
+    ...TYPOGRAPHY.badge, color: COLORS.white, fontWeight: '900',
+  },
 });

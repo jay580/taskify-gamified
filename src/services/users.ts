@@ -15,6 +15,8 @@ export interface UserSchema {
   role: 'admin' | 'student';
   pointsThisMonth: number;
   totalTasksDone: number;
+  rewardsWon: number;
+  rewardClaimed: boolean;
   streakDays: number;
   badges: string[];
   isActive: boolean;
@@ -98,6 +100,7 @@ export const createStudent = async (name: string, teamName: string, dateOfBirth:
       pointsThisMonth: 0,
       totalTasksDone: 0,
       streakDays: 0,
+      rewardClaimed: false,
       badges: [],
       isActive: true,
       isSuspended: false,
@@ -142,6 +145,8 @@ export const observeStudents = (callback: (users: UserSchema[]) => void) => {
         role: 'student',
         pointsThisMonth: data.pointsThisMonth || 0,
         totalTasksDone: data.totalTasksDone || 0,
+        rewardsWon: data.rewardsWon || 0,
+        rewardClaimed: data.rewardClaimed || false,
         streakDays: data.streakDays || 0,
         badges: data.badges || [],
         isActive: data.isActive !== false,
@@ -182,6 +187,8 @@ export const observeLeaderboard = (callback: (users: UserSchema[]) => void) => {
         role: 'student',
         pointsThisMonth: data.pointsThisMonth || 0,
         totalTasksDone: data.totalTasksDone || 0,
+        rewardsWon: data.rewardsWon || 0,
+        rewardClaimed: data.rewardClaimed || false,
         streakDays: data.streakDays || 0,
         badges: data.badges || [],
         isActive: data.isActive !== false,
@@ -286,6 +293,18 @@ export const updateStudentSuspension = async (userId: string, durationDays: numb
     }
   } catch (error) {
     console.error("Error updating suspension: ", error);
+    throw error;
+  }
+};
+
+export const incrementRewardsWon = async (userId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      rewardsWon: increment(1)
+    });
+  } catch (error) {
+    console.error("Error incrementing rewards won: ", error);
     throw error;
   }
 };

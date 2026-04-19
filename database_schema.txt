@@ -1,4 +1,4 @@
-DATABASE SCHEMA - TASKIFY (Firestore)
+DATABASE SCHEMA - TASK BUZZ (Firestore)
 
 1. USERS COLLECTION
 Stores profile info for Students and Admins.

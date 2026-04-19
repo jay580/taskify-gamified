@@ -11,6 +11,8 @@ export interface UserProfile {
   role: 'student' | 'admin';
   pointsThisMonth: number;
   totalTasksDone: number;
+  rewardsWon: number;
+  rewardClaimed?: boolean;
   streakDays: number;
   badges: string[];
   isActive: boolean;
@@ -90,6 +92,7 @@ export interface AppSettings {
   reward2nd: string;
   reward3rd: string;
   lastResetAt: string;
+  winnersFinalized?: boolean;
 }
 
 // ── Notification ──
@@ -113,4 +116,5 @@ export interface LeaderboardEntry {
   totalTasksDone: number;
   points: number;              // pointsThisMonth
   rank: number;
+  rewardClaimed?: boolean;
 }

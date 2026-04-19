@@ -26,7 +26,7 @@ export default function Header(props: any) {
       <View style={styles.leftContainer}>
         <Logo size={40} style={styles.logo} />
         <View>
-          <Text style={styles.title}>TASKIFY</Text>
+          <Text style={styles.title}>TASK BUZZ</Text>
           <Text style={styles.subtitle}>Shelter Don Bosco</Text>
         </View>
       </View>

@@ -41,7 +41,7 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: { onAnimat
       <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
         <Animated.View style={{ transform: [{ scale: scaleValue }], opacity: opacityValue, alignItems: 'center' }}>
           <Logo size={80} />
-          <Text style={styles.title}>TASKIFY</Text>
+          <Text style={styles.title}>TASK BUZZ</Text>
         </Animated.View>
       </Animated.View>
     </View>
